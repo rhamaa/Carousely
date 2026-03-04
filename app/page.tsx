@@ -35,6 +35,8 @@ export default function Home() {
   const [markdown, setMarkdown] = useState(starterMarkdown);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
   const [selectedTheme, setSelectedTheme] = useState<keyof typeof themeStyles>("aurora");
+  const [preferMarkdownAspectRatio, setPreferMarkdownAspectRatio] = useState(true);
+  const [preferMarkdownTheme, setPreferMarkdownTheme] = useState(true);
   const [fontPreset, setFontPreset] = useState<FontPreset>("geist");
   const [slideOrder, setSlideOrder] = useState<string[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -87,8 +89,20 @@ export default function Home() {
   const manualAspectRatio = aspectRatio;
   const manualTheme = selectedTheme;
   const isDesktopShell = typeof window !== "undefined" && Boolean((window as Window & { __TAURI_IPC__?: unknown }).__TAURI_IPC__);
-  const aspectRatioControlledByMarkdown = Boolean(parsed.metadata.aspectRatio);
-  const themeControlledByMarkdown = Boolean(parsed.metadata.theme ?? parsed.metadata.brand);
+
+  const markdownAspectRatio = parsed.metadata.aspectRatio;
+  const markdownTheme = parsed.metadata.theme ?? parsed.metadata.brand;
+
+  useEffect(() => {
+    setPreferMarkdownAspectRatio(true);
+  }, [markdownAspectRatio]);
+
+  useEffect(() => {
+    setPreferMarkdownTheme(true);
+  }, [markdownTheme]);
+
+  const aspectRatioControlledByMarkdown = Boolean(markdownAspectRatio) && preferMarkdownAspectRatio;
+  const themeControlledByMarkdown = Boolean(markdownTheme) && preferMarkdownTheme;
   const activeAspectRatio = aspectRatioControlledByMarkdown ? parsed.resolved.aspectRatio : manualAspectRatio;
   const activeThemeKey = (themeControlledByMarkdown ? parsed.resolved.theme : manualTheme) as keyof typeof themeStyles;
   const activeTheme = themeStyles[activeThemeKey] ?? themeStyles.aurora;
@@ -412,7 +426,7 @@ export default function Home() {
       if (!selected || Array.isArray(selected)) return;
       const payload = collectExportSlides();
       const exported = await invoke<number>("export_png_folder", {
-        folderPath: selected,
+        folder_path: selected,
         slides: payload,
       });
       setNotice(`Ekspor folder selesai (${exported} file).`);
@@ -542,10 +556,16 @@ export default function Home() {
       }
       // Topbar props
       activeAspectRatio={activeAspectRatio as AspectRatio}
-      setAspectRatio={setAspectRatio}
+      setAspectRatio={(value) => {
+        setPreferMarkdownAspectRatio(false);
+        setAspectRatio(value);
+      }}
       aspectRatioControlledByMarkdown={aspectRatioControlledByMarkdown}
       activeThemeKey={activeThemeKey as keyof typeof themeStyles}
-      setSelectedTheme={setSelectedTheme}
+      setSelectedTheme={(value) => {
+        setPreferMarkdownTheme(false);
+        setSelectedTheme(value);
+      }}
       themeControlledByMarkdown={themeControlledByMarkdown}
       fontPreset={fontPreset}
       setFontPreset={setFontPreset}
