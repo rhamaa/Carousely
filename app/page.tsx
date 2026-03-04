@@ -209,7 +209,7 @@ export default function Home() {
 
       payload.push({
         filename,
-        dataUrl: stage.toDataURL({ pixelRatio: 2 }),
+        dataUrl: stage.toDataURL({ pixelRatio: stageSize.width / 340 }), // Scale from preview width back to full size
       });
     });
 
@@ -336,14 +336,21 @@ export default function Home() {
     setIsExportingPng(true);
     try {
       const payload = collectExportSlides();
-      payload.forEach((slide) => {
-        const anchor = document.createElement("a");
-        anchor.href = slide.dataUrl;
-        anchor.download = slide.filename;
-        anchor.click();
-      });
-      setNotice(`Berhasil mengunduh ${payload.length} slide.`);
-      pushLog("success", `Ekspor PNG selesai (${payload.length} slide).`);
+      
+      if (isDesktopShell) {
+        const exported = await invoke<number>("export_png_direct", { slides: payload });
+        setNotice(`Ekspor folder selesai (${exported} file).`);
+        pushLog("success", `PNG diekspor otomatis ke folder Downloads/Carousely_Export`);
+      } else {
+        payload.forEach((slide) => {
+          const anchor = document.createElement("a");
+          anchor.href = slide.dataUrl;
+          anchor.download = slide.filename;
+          anchor.click();
+        });
+        setNotice(`Berhasil mengunduh ${payload.length} slide.`);
+        pushLog("success", `Ekspor PNG selesai (${payload.length} slide).`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal mengekspor PNG.";
       setNotice(message);
@@ -362,10 +369,24 @@ export default function Home() {
       payload.forEach((slide) => {
         zip.file(slide.filename, dataUrlToUint8Array(slide.dataUrl));
       });
-      const blob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(blob, "carousely-slides.zip");
-      setNotice("ZIP berhasil dibuat.");
-      pushLog("success", `ZIP berisi ${payload.length} slide berhasil diunduh.`);
+      
+      if (isDesktopShell) {
+        const uint8array = await zip.generateAsync({ type: "uint8array" });
+        const { downloadDir, join } = await import("@tauri-apps/api/path");
+        const { writeFile } = await import("@tauri-apps/plugin-fs");
+        
+        const dir = await downloadDir();
+        const filePath = await join(dir, "carousely-slides.zip");
+        await writeFile(filePath, uint8array);
+        
+        setNotice("ZIP berhasil disimpan ke folder Downloads.");
+        pushLog("success", `ZIP berisi ${payload.length} slide berhasil disimpan ke Downloads.`);
+      } else {
+        const blob = await zip.generateAsync({ type: "blob" });
+        downloadBlob(blob, "carousely-slides.zip");
+        setNotice("ZIP berhasil dibuat.");
+        pushLog("success", `ZIP berisi ${payload.length} slide berhasil diunduh.`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal membuat ZIP.";
       setNotice(message);

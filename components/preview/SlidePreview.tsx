@@ -98,8 +98,8 @@ export default function SlidePreview({
 
               {StageComponent && LayerComponent && GroupComponent && RectComponent && LineComponent && TextComponent ? (
                 <StageComponent
-                  width={stageSize.width}
-                  height={stageSize.height}
+                  width={previewWidth}
+                  height={previewHeight}
                   scaleX={previewWidth / stageSize.width}
                   scaleY={previewWidth / stageSize.width}
                   style={{
