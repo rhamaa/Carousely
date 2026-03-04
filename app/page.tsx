@@ -1,561 +1,547 @@
 "use client";
 
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { toPng } from "html-to-image";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import JSZip from "jszip";
 
-type DesktopContext = {
-  os: string;
-  arch: string;
-  profile: string;
-};
+import type {
+  AspectRatio,
+  DesktopContext,
+  ExportSlidePayload,
+  FontPreset,
+  KonvaRuntime,
+  LogEntry,
+  LogLevel,
+  SavedProject,
+  StageHandle,
+  Slide,
+} from "@/lib/types";
+import { autosaveStorageKey, canvasSize, fontPresets, starterMarkdown, themeStyles } from "@/lib/constants";
+import { dataUrlToUint8Array, fileToDataUrl, resolveFontFamily } from "@/lib/utils";
+import { parseMarkdownToSlides } from "@/lib/parser";
 
-type SlideBlock =
-  | { kind: "paragraph"; text: string }
-  | { kind: "bullet-list"; items: string[] }
-  | { kind: "ordered-list"; items: string[] }
-  | { kind: "quote"; text: string }
-  | { kind: "image"; alt: string; src: string };
-
-type Slide = {
-  id: string;
-  title: string;
-  blocks: SlideBlock[];
-};
-
-type ParseResult = {
-  metadata: Record<string, string>;
-  slides: Slide[];
-};
-
-type EditorStatus = "idle" | "loading" | "error" | "success";
-type AspectRatio = "4:5" | "1:1";
-
-const starterMarkdown = `---
-title: "Konten Creator Sprint"
-brand: "aurora"
-aspectRatio: 4:5
----
-
-## Slide 1 - Hook
-3 kesalahan paling umum saat bikin konten carousel:
-- Judul kurang tajam
-- Visual tidak konsisten
-- CTA terlalu umum
-
-:::quote
-Konten bagus = ide kuat + struktur jelas + eksekusi visual konsisten.
-:::
-
-## Slide 2 - Framework
-1. Buka dengan pain point yang spesifik.
-2. Breakdown jadi 3-5 poin actionable.
-3. Tutup dengan CTA yang mengundang aksi.
-
-## Slide 3 - CTA
-Pakai Carousely untuk menulis satu markdown dan generate semua slide otomatis.
-![preview](./assets/example-cover.png)
-`;
-
-const themeStyles: Record<string, string> = {
-  aurora:
-    "bg-gradient-to-br from-cyan-200 via-white to-sky-100 text-slate-900 border border-cyan-300/70",
-  ember:
-    "bg-gradient-to-br from-amber-100 via-rose-50 to-red-100 text-red-950 border border-red-300/60",
-  mono:
-    "bg-gradient-to-br from-zinc-100 via-zinc-50 to-slate-200 text-zinc-900 border border-zinc-300",
-};
-
-const markdownHint = `Tips format:
-- Mulai slide baru dengan "## Judul"
-- Bullet list: "- item"
-- Numbered list: "1. item"
-- Quote block: :::quote ... :::`;
-
-const imageRegex = /^!\[(.*?)]\((.*?)\)\s*$/;
-const orderedRegex = /^\d+\.\s+/;
-
-const parseFrontmatter = (source: string): { metadata: Record<string, string>; body: string } => {
-  const frontmatterMatch = source.match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!frontmatterMatch) {
-    return { metadata: {}, body: source };
-  }
-
-  const metadata: Record<string, string> = {};
-  const lines = frontmatterMatch[1].split("\n");
-
-  for (const line of lines) {
-    const [rawKey, ...valueParts] = line.split(":");
-    if (!rawKey || valueParts.length === 0) {
-      continue;
-    }
-
-    const key = rawKey.trim();
-    const value = valueParts.join(":").trim().replace(/^"|"$/g, "");
-    if (key) {
-      metadata[key] = value;
-    }
-  }
-
-  return {
-    metadata,
-    body: source.slice(frontmatterMatch[0].length),
-  };
-};
-
-const buildBlocks = (lines: string[]): SlideBlock[] => {
-  const blocks: SlideBlock[] = [];
-  let index = 0;
-
-  while (index < lines.length) {
-    const line = lines[index].trim();
-
-    if (!line) {
-      index += 1;
-      continue;
-    }
-
-    if (line === ":::quote") {
-      const quoteLines: string[] = [];
-      index += 1;
-
-      while (index < lines.length && lines[index].trim() !== ":::") {
-        quoteLines.push(lines[index].trim());
-        index += 1;
-      }
-
-      if (quoteLines.length > 0) {
-        blocks.push({
-          kind: "quote",
-          text: quoteLines.join(" "),
-        });
-      }
-
-      index += 1;
-      continue;
-    }
-
-    if (line.startsWith("- ")) {
-      const items: string[] = [];
-
-      while (index < lines.length && lines[index].trim().startsWith("- ")) {
-        items.push(lines[index].trim().slice(2).trim());
-        index += 1;
-      }
-
-      blocks.push({ kind: "bullet-list", items });
-      continue;
-    }
-
-    if (orderedRegex.test(line)) {
-      const items: string[] = [];
-
-      while (index < lines.length && orderedRegex.test(lines[index].trim())) {
-        items.push(lines[index].trim().replace(orderedRegex, "").trim());
-        index += 1;
-      }
-
-      blocks.push({ kind: "ordered-list", items });
-      continue;
-    }
-
-    const imageMatch = line.match(imageRegex);
-    if (imageMatch) {
-      blocks.push({
-        kind: "image",
-        alt: imageMatch[1] || "image",
-        src: imageMatch[2],
-      });
-      index += 1;
-      continue;
-    }
-
-    const paragraphLines: string[] = [];
-
-    while (index < lines.length) {
-      const candidate = lines[index].trim();
-      if (
-        !candidate ||
-        candidate === ":::quote" ||
-        candidate.startsWith("- ") ||
-        orderedRegex.test(candidate) ||
-        imageRegex.test(candidate)
-      ) {
-        break;
-      }
-
-      paragraphLines.push(candidate);
-      index += 1;
-    }
-
-    if (paragraphLines.length > 0) {
-      blocks.push({ kind: "paragraph", text: paragraphLines.join(" ") });
-      continue;
-    }
-
-    index += 1;
-  }
-
-  return blocks;
-};
-
-const parseMarkdownToSlides = (source: string): ParseResult => {
-  const normalized = source.replace(/\r\n/g, "\n");
-  const { metadata, body } = parseFrontmatter(normalized);
-  const lines = body.split("\n");
-  const slides: Slide[] = [];
-
-  let title = "";
-  let buffer: string[] = [];
-
-  const flush = () => {
-    const cleaned = buffer.join("\n").trim();
-    if (!cleaned && !title) {
-      return;
-    }
-
-    const blocks = buildBlocks(cleaned ? cleaned.split("\n") : []);
-    slides.push({
-      id: `slide-${slides.length + 1}`,
-      title: title || `Slide ${slides.length + 1}`,
-      blocks: blocks.length > 0 ? blocks : [{ kind: "paragraph", text: "(Slide kosong)" }],
-    });
-  };
-
-  for (const line of lines) {
-    if (line.startsWith("## ")) {
-      flush();
-      title = line.slice(3).trim();
-      buffer = [];
-      continue;
-    }
-
-    buffer.push(line);
-  }
-
-  flush();
-
-  if (slides.length === 0) {
-    slides.push({
-      id: "slide-1",
-      title: metadata.title || "Slide 1",
-      blocks: [{ kind: "paragraph", text: "Mulai dengan heading ## untuk memecah konten." }],
-    });
-  }
-
-  return { metadata, slides };
-};
-
-const renderInline = (text: string): ReactNode[] => {
-  const segments = text.split(/(\*\*[^*]+\*\*)/g);
-  return segments.map((segment, index) => {
-    if (segment.startsWith("**") && segment.endsWith("**")) {
-      return (
-        <strong key={`${segment}-${index}`} className="font-semibold">
-          {segment.slice(2, -2)}
-        </strong>
-      );
-    }
-
-    return <span key={`${segment}-${index}`}>{segment}</span>;
-  });
-};
+import MainLayout from "@/components/layout/MainLayout";
+import SlideSidebar from "@/components/sidebar/SlideSidebar";
+import MarkdownEditor from "@/components/editor/MarkdownEditor";
+import SlidePreview from "@/components/preview/SlidePreview";
+import LogPanel from "@/components/layout/LogPanel";
 
 const makeCaption = (slides: Slide[]): string => {
-  return slides
-    .map((slide, index) => `${index + 1}. ${slide.title}`)
-    .join("\n");
+  return slides.map((slide, index) => `${index + 1}. ${slide.title}`).join("\n");
 };
 
 export default function Home() {
   const [markdown, setMarkdown] = useState(starterMarkdown);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
   const [selectedTheme, setSelectedTheme] = useState<keyof typeof themeStyles>("aurora");
+  const [fontPreset, setFontPreset] = useState<FontPreset>("geist");
+  const [slideOrder, setSlideOrder] = useState<string[]>([]);
+  const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
+  const [draggingSlideId, setDraggingSlideId] = useState<string | null>(null);
+  const [projectPath, setProjectPath] = useState<string | null>(null);
+  const [showGuides, setShowGuides] = useState(true);
+  const [showSafeArea, setShowSafeArea] = useState(true);
   const [context, setContext] = useState<DesktopContext | null>(null);
-  const [status, setStatus] = useState<EditorStatus>("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string>("");
-  const [isDownloading, setIsDownloading] = useState(false);
-  const slideRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const [isExportingPng, setIsExportingPng] = useState(false);
+  const [isExportingZip, setIsExportingZip] = useState(false);
+  const [isExportingFolder, setIsExportingFolder] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [konvaRuntime, setKonvaRuntime] = useState<KonvaRuntime | null>(null);
+  
+  const stageRefs = useRef<Map<string, StageHandle>>(new Map());
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const autosaveReadyRef = useRef(false);
 
   const parsed = useMemo(() => parseMarkdownToSlides(markdown), [markdown]);
-  const caption = useMemo(() => makeCaption(parsed.slides), [parsed.slides]);
-  const activeTheme = themeStyles[selectedTheme] ?? themeStyles.aurora;
-  const isDesktopShell =
-    typeof window !== "undefined" &&
-    Boolean((window as Window & { __TAURI_IPC__?: unknown }).__TAURI_IPC__);
+  const orderedSlides = useMemo(() => {
+    const byId = new Map(parsed.slides.map((slide) => [slide.id, slide]));
+    const resolved: Slide[] = [];
+    for (const id of slideOrder) {
+      const slide = byId.get(id);
+      if (slide) {
+        resolved.push(slide);
+        byId.delete(id);
+      }
+    }
+
+    for (const slide of parsed.slides) {
+      if (byId.has(slide.id)) {
+        resolved.push(slide);
+      }
+    }
+
+    return resolved;
+  }, [parsed.slides, slideOrder]);
+  
+  const lintSlideErrors = useMemo(
+    () => orderedSlides.reduce((count, slide) => count + slide.errors.length, 0),
+    [orderedSlides],
+  );
+  const lintWarningCount = parsed.warnings.length;
+  const lintIssueCount = lintSlideErrors + lintWarningCount;
+  
+  const manualAspectRatio = aspectRatio;
+  const manualTheme = selectedTheme;
+  const isDesktopShell = typeof window !== "undefined" && Boolean((window as Window & { __TAURI_IPC__?: unknown }).__TAURI_IPC__);
+  const aspectRatioControlledByMarkdown = Boolean(parsed.metadata.aspectRatio);
+  const themeControlledByMarkdown = Boolean(parsed.metadata.theme ?? parsed.metadata.brand);
+  const activeAspectRatio = aspectRatioControlledByMarkdown ? parsed.resolved.aspectRatio : manualAspectRatio;
+  const activeThemeKey = (themeControlledByMarkdown ? parsed.resolved.theme : manualTheme) as keyof typeof themeStyles;
+  const activeTheme = themeStyles[activeThemeKey] ?? themeStyles.aurora;
+  const activeFont = fontPresets[fontPreset];
+  const headingFontFamily = resolveFontFamily(activeFont.headingVar, activeFont.fallbackHeading);
+  const bodyFontFamily = resolveFontFamily(activeFont.bodyVar, activeFont.fallbackBody);
+  const stageSize = canvasSize[activeAspectRatio];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void Promise.all([
+      import("react-konva/lib/ReactKonvaCore"),
+      import("konva/lib/shapes/Rect"),
+      import("konva/lib/shapes/Line"),
+      import("konva/lib/shapes/Text"),
+    ])
+      .then(([module]) => {
+        if (cancelled) return;
+        setKonvaRuntime({
+          Stage: module.Stage as KonvaRuntime["Stage"],
+          Layer: module.Layer as KonvaRuntime["Layer"],
+          Group: module.Group as KonvaRuntime["Group"],
+          Rect: module.Rect as KonvaRuntime["Rect"],
+          Line: module.Line as KonvaRuntime["Line"],
+          Text: module.Text as KonvaRuntime["Text"],
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setNotice("Konva gagal dimuat pada runtime.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pushLog = useCallback((level: LogLevel, message: string) => {
+    const entry: LogEntry = {
+      id: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      level,
+      message,
+      timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    };
+    setLogs((previous) => [...previous.slice(-79), entry]);
+  }, []);
+
+  useEffect(() => {
+    setSlideOrder((previous) => {
+      const availableIds = parsed.slides.map((slide) => slide.id);
+      if (availableIds.length === 0) return [];
+      const retained = previous.filter((id) => availableIds.includes(id));
+      const missing = availableIds.filter((id) => !retained.includes(id));
+      const next = [...retained, ...missing];
+      const unchanged = next.length === previous.length && next.every((id, index) => id === previous[index]);
+      return unchanged ? previous : next;
+    });
+  }, [parsed.slides]);
+
+  useEffect(() => {
+    if (orderedSlides.length === 0) {
+      if (activeSlideId !== null) setActiveSlideId(null);
+      return;
+    }
+    if (!activeSlideId || !orderedSlides.some((slide) => slide.id === activeSlideId)) {
+      setActiveSlideId(orderedSlides[0].id);
+    }
+  }, [orderedSlides, activeSlideId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(autosaveStorageKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as SavedProject;
+        if (typeof saved.markdown === "string") setMarkdown(saved.markdown);
+        if (saved.aspectRatio === "4:5" || saved.aspectRatio === "1:1") setAspectRatio(saved.aspectRatio);
+        if (saved.theme && saved.theme in themeStyles) setSelectedTheme(saved.theme as keyof typeof themeStyles);
+        if (saved.fontPreset && saved.fontPreset in fontPresets) setFontPreset(saved.fontPreset);
+        if (Array.isArray(saved.slideOrder)) setSlideOrder(saved.slideOrder);
+
+        setNotice("Autosave dimuat.");
+        pushLog("info", "Autosave project dipulihkan dari local storage.");
+      }
+    } catch {
+      window.localStorage.removeItem(autosaveStorageKey);
+      pushLog("error", "Autosave rusak dan telah direset.");
+    } finally {
+      autosaveReadyRef.current = true;
+    }
+  }, [pushLog]);
+
+  useEffect(() => {
+    if (!autosaveReadyRef.current || typeof window === "undefined") return;
+
+    const payload: SavedProject = {
+      version: 1,
+      markdown,
+      aspectRatio,
+      theme: selectedTheme,
+      fontPreset,
+      slideOrder,
+    };
+    window.localStorage.setItem(autosaveStorageKey, JSON.stringify(payload));
+  }, [markdown, aspectRatio, selectedTheme, fontPreset, slideOrder]);
+
+  const collectExportSlides = useCallback((): ExportSlidePayload[] => {
+    if (!konvaRuntime) throw new Error("Konva belum siap. Tunggu preview termuat.");
+
+    const payload: ExportSlidePayload[] = [];
+    orderedSlides.forEach((slide, index) => {
+      const stage = stageRefs.current.get(slide.id);
+      if (!stage) return;
+
+      const sanitizedTitle = slide.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+      const filename = `${String(index + 1).padStart(2, "0")}-${sanitizedTitle || slide.id}.png`;
+
+      payload.push({
+        filename,
+        dataUrl: stage.toDataURL({ pixelRatio: 2 }),
+      });
+    });
+
+    if (payload.length === 0) throw new Error("Belum ada slide yang siap diekspor.");
+    return payload;
+  }, [konvaRuntime, orderedSlides]);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildProjectPayload = (): SavedProject => {
+    return {
+      version: 1,
+      markdown,
+      aspectRatio,
+      theme: selectedTheme,
+      fontPreset,
+      slideOrder,
+    };
+  };
+
+  const applyProjectPayload = (payload: SavedProject) => {
+    if (typeof payload.markdown !== "string") throw new Error("Format project tidak valid.");
+    setMarkdown(payload.markdown);
+    if (payload.aspectRatio === "4:5" || payload.aspectRatio === "1:1") setAspectRatio(payload.aspectRatio);
+    if (payload.theme && payload.theme in themeStyles) setSelectedTheme(payload.theme as keyof typeof themeStyles);
+    if (payload.fontPreset && payload.fontPreset in fontPresets) setFontPreset(payload.fontPreset);
+    if (Array.isArray(payload.slideOrder)) setSlideOrder(payload.slideOrder);
+  };
 
   const handleFetchContext = async () => {
     setStatus("loading");
     setError(null);
-
     try {
       const payload = await invoke<DesktopContext>("desktop_context");
       setContext(payload);
       setStatus("success");
+      pushLog("success", `Desktop context diperbarui (${payload.os}/${payload.arch}).`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Tidak dapat membaca konteks desktop.");
+      const message = err instanceof Error ? err.message : "Tidak dapat membaca konteks desktop.";
+      setError(message);
       setStatus("error");
+      pushLog("error", message);
     }
   };
 
-  const handleCopyCaption = async () => {
-    try {
-      await navigator.clipboard.writeText(caption);
-      setNotice("Caption berhasil dicopy.");
-    } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Gagal menyalin caption.");
+  const handleSaveProjectAs = async () => {
+    const json = JSON.stringify(buildProjectPayload(), null, 2);
+    if (isDesktopShell) {
+      try {
+        const target = await saveDialog({
+          title: "Simpan project Carousely",
+          defaultPath: projectPath ?? "project.carousely.json",
+          filters: [{ name: "Carousely Project", extensions: ["json"] }],
+        });
+        if (!target || Array.isArray(target)) return;
+        await invoke("save_project_file", { path: target, content: json });
+        setProjectPath(target);
+        setNotice("Project berhasil disimpan.");
+        pushLog("success", `Project disimpan ke ${target}`);
+        return;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Gagal menyimpan project.";
+        setNotice(message);
+        pushLog("error", message);
+        return;
+      }
     }
-  };
-
-  const handleDownloadProject = () => {
-    const payload = JSON.stringify(
-      {
-        metadata: parsed.metadata,
-        aspectRatio,
-        theme: selectedTheme,
-        markdown,
-      },
-      null,
-      2,
-    );
-
-    const blob = new Blob([payload], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "carousely-project.json";
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([json], { type: "application/json" }), "carousely-project.json");
     setNotice("Project JSON berhasil diunduh.");
+    pushLog("info", "Project diunduh sebagai JSON (web mode).");
   };
 
-  const handleDownloadSlides = useCallback(async () => {
-    if (parsed.slides.length === 0 || isDownloading) {
+  const handleSaveProject = async () => {
+    if (!isDesktopShell || !projectPath) {
+      await handleSaveProjectAs();
       return;
     }
-
-    setIsDownloading(true);
     try {
-      for (const slide of parsed.slides) {
-        const target = slideRefs.current.get(slide.id);
-        if (!target) {
-          continue;
-        }
-
-        const dataUrl = await toPng(target, {
-          cacheBust: true,
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-
-        const anchor = document.createElement("a");
-        anchor.href = dataUrl;
-        anchor.download = `${slide.id}.png`;
-        anchor.click();
-      }
-      setNotice(`Berhasil mengunduh ${parsed.slides.length} slide.`);
+      const json = JSON.stringify(buildProjectPayload(), null, 2);
+      await invoke("save_project_file", { path: projectPath, content: json });
+      setNotice("Project diperbarui.");
+      pushLog("success", `Project diperbarui di ${projectPath}`);
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Gagal merender slide.");
-    } finally {
-      setIsDownloading(false);
+      const message = err instanceof Error ? err.message : "Gagal menyimpan project.";
+      setNotice(message);
+      pushLog("error", message);
     }
-  }, [isDownloading, parsed.slides]);
+  };
+
+  const handleOpenProject = async () => {
+    if (!isDesktopShell) {
+      setNotice("Open project native hanya tersedia di mode desktop.");
+      return;
+    }
+    try {
+      const selected = await openDialog({
+        title: "Buka project Carousely",
+        multiple: false,
+        filters: [{ name: "Carousely Project", extensions: ["json"] }],
+      });
+      if (!selected || Array.isArray(selected)) return;
+      const content = await invoke<string>("open_project_file", { path: selected });
+      const payload = JSON.parse(content) as SavedProject;
+      applyProjectPayload(payload);
+      setProjectPath(selected);
+      setNotice("Project berhasil dibuka.");
+      pushLog("success", `Project dibuka dari ${selected}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal membuka project.";
+      setNotice(message);
+      pushLog("error", message);
+    }
+  };
+
+  const handleExportPng = async () => {
+    if (isExportingPng) return;
+    setIsExportingPng(true);
+    try {
+      const payload = collectExportSlides();
+      payload.forEach((slide) => {
+        const anchor = document.createElement("a");
+        anchor.href = slide.dataUrl;
+        anchor.download = slide.filename;
+        anchor.click();
+      });
+      setNotice(`Berhasil mengunduh ${payload.length} slide.`);
+      pushLog("success", `Ekspor PNG selesai (${payload.length} slide).`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal mengekspor PNG.";
+      setNotice(message);
+      pushLog("error", message);
+    } finally {
+      setIsExportingPng(false);
+    }
+  };
+
+  const handleExportZip = async () => {
+    if (isExportingZip) return;
+    setIsExportingZip(true);
+    try {
+      const payload = collectExportSlides();
+      const zip = new JSZip();
+      payload.forEach((slide) => {
+        zip.file(slide.filename, dataUrlToUint8Array(slide.dataUrl));
+      });
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, "carousely-slides.zip");
+      setNotice("ZIP berhasil dibuat.");
+      pushLog("success", `ZIP berisi ${payload.length} slide berhasil diunduh.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal membuat ZIP.";
+      setNotice(message);
+      pushLog("error", message);
+    } finally {
+      setIsExportingZip(false);
+    }
+  };
+
+  const handleExportToFolder = async () => {
+    if (!isDesktopShell) {
+      setNotice("Ekspor ke folder native hanya tersedia di mode desktop.");
+      return;
+    }
+    if (isExportingFolder) return;
+    setIsExportingFolder(true);
+    try {
+      const selected = await openDialog({
+        title: "Pilih folder tujuan ekspor",
+        directory: true,
+        multiple: false,
+      });
+      if (!selected || Array.isArray(selected)) return;
+      const payload = collectExportSlides();
+      const exported = await invoke<number>("export_png_folder", {
+        folderPath: selected,
+        slides: payload,
+      });
+      setNotice(`Ekspor folder selesai (${exported} file).`);
+      pushLog("success", `PNG diekspor ke folder ${selected}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal ekspor ke folder.";
+      setNotice(message);
+      pushLog("error", message);
+    } finally {
+      setIsExportingFolder(false);
+    }
+  };
+
+  const handleEditorDrop = async (event: React.DragEvent<HTMLTextAreaElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const alt = file.name.replace(/\.[^.]+$/, "");
+      const snippet = `![${alt}](${dataUrl}){ratio=cover align=center}\n`;
+      
+      const textarea = editorTextareaRef.current;
+      if (!textarea) {
+        setMarkdown((previous) => `${previous}\n${snippet}`);
+        return;
+      }
+
+      const selectionStart = textarea.selectionStart;
+      const selectionEnd = textarea.selectionEnd;
+
+      setMarkdown((previous) => {
+        return `${previous.slice(0, selectionStart)}${snippet}${previous.slice(selectionEnd)}`;
+      });
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const cursor = selectionStart + snippet.length;
+        textarea.selectionStart = cursor;
+        textarea.selectionEnd = cursor;
+      });
+
+      setNotice(`Gambar ${file.name} dimasukkan ke markdown.`);
+      pushLog("success", `Media lokal ditambahkan via drag-and-drop: ${file.name}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal memproses gambar drop.";
+      setNotice(message);
+      pushLog("error", message);
+    }
+  };
+
+  const handleSelectSlide = (slideId: string) => {
+    setActiveSlideId(slideId);
+    const element = document.getElementById(`preview-${slideId}`);
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleDropSlideOn = (targetSlideId: string) => {
+    if (!draggingSlideId || draggingSlideId === targetSlideId) return;
+
+    setSlideOrder((previous) => {
+      const next = [...previous];
+      const from = next.indexOf(draggingSlideId);
+      const to = next.indexOf(targetSlideId);
+      if (from < 0 || to < 0) return previous;
+
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+
+    pushLog("info", `Urutan slide diperbarui (${draggingSlideId} -> ${targetSlideId}).`);
+  };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#0f2940,_#05070d_56%)] px-4 py-8 text-slate-50 sm:px-6 lg:px-8">
-      <main className="mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <section className="relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/70 p-5 shadow-[0_20px_60px_rgba(16,185,129,0.15)] backdrop-blur">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.36em] text-cyan-300">Carousely Studio</p>
-              <h1 className="text-2xl font-semibold text-white sm:text-3xl">
-                Markdown to Instagram Post Generator
-              </h1>
-              <p className="max-w-2xl text-sm text-slate-300">{markdownHint}</p>
-            </div>
-
-            <div className="grid gap-2 text-xs">
-              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-emerald-200">
-                {isDesktopShell ? "Desktop mode aktif" : "Web preview mode"}
-              </div>
-              <button
-                type="button"
-                onClick={handleFetchContext}
-                disabled={!isDesktopShell || status === "loading"}
-                className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {status === "loading" ? "Membaca context..." : "Refresh desktop context"}
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-5 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm text-slate-300">
-              Aspect ratio
-              <select
-                value={aspectRatio}
-                onChange={(event) => setAspectRatio(event.target.value as AspectRatio)}
-                className="rounded-xl border border-white/20 bg-slate-900 px-3 py-2 text-sm text-white outline-none ring-cyan-300 transition focus:ring-2"
-              >
-                <option value="4:5">Portrait 4:5 (1080x1350)</option>
-                <option value="1:1">Square 1:1 (1080x1080)</option>
-              </select>
-            </label>
-
-            <label className="grid gap-2 text-sm text-slate-300">
-              Theme
-              <select
-                value={selectedTheme}
-                onChange={(event) => setSelectedTheme(event.target.value as keyof typeof themeStyles)}
-                className="rounded-xl border border-white/20 bg-slate-900 px-3 py-2 text-sm text-white outline-none ring-cyan-300 transition focus:ring-2"
-              >
-                {Object.keys(themeStyles).map((theme) => (
-                  <option key={theme} value={theme}>
-                    {theme}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <textarea
-            value={markdown}
-            onChange={(event) => setMarkdown(event.target.value)}
-            className="h-[460px] w-full resize-y rounded-2xl border border-white/15 bg-black/40 p-4 font-mono text-sm leading-6 text-slate-100 outline-none ring-cyan-300 transition focus:ring-2"
-            spellCheck={false}
-          />
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-            <button
-              type="button"
-              onClick={handleCopyCaption}
-              className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 transition hover:bg-white/15"
-            >
-              Copy caption summary
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadProject}
-              className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-cyan-100 transition hover:bg-cyan-300/20"
-            >
-              Download project JSON
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadSlides}
-              disabled={isDownloading}
-              className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1.5 text-emerald-100 transition hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isDownloading ? "Rendering slides..." : "Download PNG slides"}
-            </button>
-            {notice ? <span className="text-emerald-200">{notice}</span> : null}
-          </div>
-
-          <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/25 p-3 text-xs text-slate-300 sm:grid-cols-3">
-            <p>
-              <span className="text-white">Slides:</span> {parsed.slides.length}
-            </p>
-            <p>
-              <span className="text-white">Profile:</span> {context?.profile ?? "-"}
-            </p>
-            <p>
-              <span className="text-white">Desktop:</span>{" "}
-              {context ? `${context.os} / ${context.arch}` : status === "error" ? error ?? "error" : "-"}
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 shadow-[0_20px_60px_rgba(3,7,18,0.6)] backdrop-blur">
-          <div className="mb-4 flex items-end justify-between border-b border-white/10 pb-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-200">Live Preview</p>
-              <h2 className="text-xl font-semibold text-white">Carousel Frames</h2>
-            </div>
-            <p className="text-xs text-slate-300">Mode: {aspectRatio}</p>
-          </div>
-
-          <div className="grid max-h-[740px] gap-4 overflow-y-auto pr-1">
-            {parsed.slides.map((slide, index) => (
-              <article
-                key={slide.id}
-                ref={(node) => {
-                  if (node) {
-                    slideRefs.current.set(slide.id, node);
-                  } else {
-                    slideRefs.current.delete(slide.id);
-                  }
-                }}
-                className={`group relative overflow-hidden rounded-3xl p-4 shadow-md transition hover:shadow-xl ${
-                  aspectRatio === "4:5" ? "aspect-[4/5]" : "aspect-square"
-                } ${activeTheme}`}
-              >
-                <div className="absolute right-3 top-3 rounded-full border border-black/10 bg-white/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700">
-                  {index + 1}
-                </div>
-
-                <div className="flex h-full flex-col gap-3">
-                  <h3 className="text-xl font-semibold leading-tight">{slide.title}</h3>
-
-                  <div className="grid gap-2 text-sm leading-6">
-                    {slide.blocks.map((block, blockIndex) => {
-                      if (block.kind === "paragraph") {
-                        return <p key={`${slide.id}-p-${blockIndex}`}>{renderInline(block.text)}</p>;
-                      }
-
-                      if (block.kind === "bullet-list") {
-                        return (
-                          <ul key={`${slide.id}-ul-${blockIndex}`} className="grid gap-1 pl-5">
-                            {block.items.map((item) => (
-                              <li key={item} className="list-disc">
-                                {renderInline(item)}
-                              </li>
-                            ))}
-                          </ul>
-                        );
-                      }
-
-                      if (block.kind === "ordered-list") {
-                        return (
-                          <ol key={`${slide.id}-ol-${blockIndex}`} className="grid gap-1 pl-5">
-                            {block.items.map((item) => (
-                              <li key={item} className="list-decimal">
-                                {renderInline(item)}
-                              </li>
-                            ))}
-                          </ol>
-                        );
-                      }
-
-                      if (block.kind === "quote") {
-                        return (
-                          <blockquote
-                            key={`${slide.id}-q-${blockIndex}`}
-                            className="rounded-2xl border border-black/10 bg-white/50 p-3 text-sm italic"
-                          >
-                            “{block.text}”
-                          </blockquote>
-                        );
-                      }
-
-                      return (
-                        <figure
-                          key={`${slide.id}-img-${blockIndex}`}
-                          className="mt-auto grid gap-1 rounded-2xl border border-dashed border-black/20 bg-black/5 p-3 text-xs"
-                        >
-                          <span className="font-semibold">Image placeholder</span>
-                          <span>{block.alt || "image"}</span>
-                          <span className="truncate opacity-80">{block.src}</span>
-                        </figure>
-                      );
-                    })}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </main>
-    </div>
+    <MainLayout
+      sidebar={
+        <SlideSidebar
+          slides={orderedSlides}
+          activeSlideId={activeSlideId}
+          draggingSlideId={draggingSlideId}
+          onDragStart={setDraggingSlideId}
+          onDragEnd={() => setDraggingSlideId(null)}
+          onDrop={handleDropSlideOn}
+          onSelectSlide={handleSelectSlide}
+        />
+      }
+      editor={
+        <MarkdownEditor
+          markdown={markdown}
+          setMarkdown={setMarkdown}
+          editorTextareaRef={editorTextareaRef}
+          onDrop={handleEditorDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onDragLeave={(e) => e.preventDefault()}
+          lintIssueCount={lintIssueCount}
+          lintSlideErrors={lintSlideErrors}
+          lintWarningCount={lintWarningCount}
+        />
+      }
+      preview={
+        <SlidePreview
+          orderedSlides={orderedSlides}
+          activeSlideId={activeSlideId}
+          setActiveSlideId={handleSelectSlide}
+          stageSize={stageSize}
+          activeAspectRatio={activeAspectRatio}
+          activeFont={activeFont}
+          headingFontFamily={headingFontFamily}
+          bodyFontFamily={bodyFontFamily}
+          activeTheme={activeTheme}
+          showGuides={showGuides}
+          showSafeArea={showSafeArea}
+          konvaRuntime={konvaRuntime}
+          stageRefs={stageRefs}
+        />
+      }
+      logPanel={
+        <LogPanel
+          logs={logs}
+          onClear={() => {
+            setLogs([]);
+            pushLog("info", "Log terminal dibersihkan.");
+          }}
+        />
+      }
+      // Topbar props
+      activeAspectRatio={activeAspectRatio as AspectRatio}
+      setAspectRatio={setAspectRatio}
+      aspectRatioControlledByMarkdown={aspectRatioControlledByMarkdown}
+      activeThemeKey={activeThemeKey as keyof typeof themeStyles}
+      setSelectedTheme={setSelectedTheme}
+      themeControlledByMarkdown={themeControlledByMarkdown}
+      fontPreset={fontPreset}
+      setFontPreset={setFontPreset}
+      showGuides={showGuides}
+      setShowGuides={setShowGuides}
+      showSafeArea={showSafeArea}
+      setShowSafeArea={setShowSafeArea}
+      isDesktopShell={isDesktopShell}
+      onOpenProject={handleOpenProject}
+      onSaveProject={() => void handleSaveProject()}
+      onSaveProjectAs={() => void handleSaveProjectAs()}
+      onExportPng={() => void handleExportPng()}
+      isExportingPng={isExportingPng}
+      onExportZip={() => void handleExportZip()}
+      isExportingZip={isExportingZip}
+      onExportFolder={() => void handleExportToFolder()}
+      isExportingFolder={isExportingFolder}
+    />
   );
 }
