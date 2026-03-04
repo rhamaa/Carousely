@@ -48,22 +48,22 @@ export default function SlidePreview({
   const TextComponent = konvaRuntime?.Text;
 
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e]">
-      <div className="h-14 border-b border-gray-800 flex items-center justify-between px-4 shrink-0">
+    <div className="h-full flex flex-col bg-transparent font-body">
+      <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-black/10 backdrop-blur-md shadow-sm z-10">
         <div className="flex items-center gap-2">
-          <span className="text-gray-400 font-medium text-xs tracking-wider uppercase">Live Preview</span>
-          <span className="bg-cyan-500/10 text-cyan-400 text-[10px] px-2 py-0.5 rounded font-mono border border-cyan-500/20">
+          <span className="text-gray-300 font-bold text-xs tracking-wider uppercase font-heading">Live Preview</span>
+          <span className="bg-indigo/20 text-indigo text-[10px] px-2 py-0.5 rounded font-mono border border-indigo/30">
             HQ Canvas
           </span>
         </div>
-        <div className="text-[10px] text-gray-500 font-mono flex gap-3">
+        <div className="text-[10px] text-gray-400 font-mono flex gap-3">
           <span>Mode: {activeAspectRatio}</span>
           <span>Font: {activeFont.label}</span>
         </div>
       </div>
 
       {!konvaRuntime && (
-        <div className="p-4 text-xs text-amber-400/80 font-mono bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2">
+        <div className="p-4 text-xs text-coral font-mono bg-coral/10 border-b border-coral/20 flex items-center gap-2 backdrop-blur-md">
           <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -72,26 +72,29 @@ export default function SlidePreview({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#1a1a1a]">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-transparent">
         <div className="flex flex-col items-center gap-6 pb-8">
           {orderedSlides.map((slide, index) => (
             <article
               id={`preview-${slide.id}`}
               key={slide.id}
               onClick={() => setActiveSlideId(slide.id)}
-              className={`relative rounded-xl overflow-hidden transition-all duration-300 shadow-lg cursor-pointer ${
+              className={`relative rounded-xl overflow-hidden transition-all duration-300 cursor-pointer ${
                 activeSlideId === slide.id
-                  ? "ring-2 ring-cyan-500 ring-offset-4 ring-offset-[#1a1a1a] shadow-cyan-500/20"
-                  : "ring-1 ring-white/5 hover:ring-white/20"
+                  ? "ring-4 ring-indigo ring-offset-4 ring-offset-black/50 shadow-xl shadow-indigo/20 scale-[1.02]"
+                  : "ring-1 ring-white/10 hover:ring-indigo/50 shadow-lg hover:shadow-indigo/10"
               }`}
               style={{ width: previewWidth }}
             >
-              <div className="absolute top-3 left-3 z-10 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-mono text-white/90 border border-white/10 shadow-sm pointer-events-none">
+              {activeSlideId === slide.id && (
+                <div className="absolute inset-0 pointer-events-none border-2 border-indigo z-20 rounded-xl" />
+              )}
+              <div className="absolute top-3 left-3 z-10 bg-dark-gray/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-mono text-white/90 border border-white/10 shadow-sm pointer-events-none">
                 {String(index + 1).padStart(2, '0')}
               </div>
 
               {slide.errors.length > 0 && (
-                <div className="absolute top-3 right-3 z-10 bg-rose-500/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-medium text-white border border-rose-400/50 shadow-sm flex items-center gap-1 pointer-events-none">
+                <div className="absolute top-3 right-3 z-10 bg-coral/90 backdrop-blur-md px-2 py-1 rounded text-[10px] font-medium text-white border border-white/20 shadow-sm flex items-center gap-1 pointer-events-none">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
@@ -132,6 +135,35 @@ export default function SlidePreview({
 
                     {showGuides && (
                       <GroupComponent>
+                        {[1, 2, 3, 4, 5].map((divider) => (
+                          <LineComponent
+                            key={`grid-v-${divider}`}
+                            points={[
+                              (stageSize.width / 6) * divider,
+                              0,
+                              (stageSize.width / 6) * divider,
+                              stageSize.height,
+                            ]}
+                            stroke="#E0E0E0"
+                            strokeWidth={1}
+                            opacity={0.5}
+                          />
+                        ))}
+                        {[1, 2, 3, 4, 5].map((divider) => (
+                          <LineComponent
+                            key={`grid-h-${divider}`}
+                            points={[
+                              0,
+                              (stageSize.height / 6) * divider,
+                              stageSize.width,
+                              (stageSize.height / 6) * divider,
+                            ]}
+                            stroke="#E0E0E0"
+                            strokeWidth={1}
+                            opacity={0.5}
+                          />
+                        ))}
+                        
                         {[1, 2].map((divider) => (
                           <LineComponent
                             key={`vertical-${divider}`}
@@ -141,8 +173,9 @@ export default function SlidePreview({
                               (stageSize.width / 3) * divider,
                               stageSize.height,
                             ]}
-                            stroke="rgba(255,255,255,0.18)"
+                            stroke="var(--color-primary-indigo, #5B3FFF)"
                             strokeWidth={2}
+                            opacity={0.6}
                             dash={[8, 10]}
                           />
                         ))}
@@ -155,8 +188,9 @@ export default function SlidePreview({
                               stageSize.width,
                               (stageSize.height / 3) * divider,
                             ]}
-                            stroke="rgba(255,255,255,0.18)"
+                            stroke="var(--color-primary-indigo, #5B3FFF)"
                             strokeWidth={2}
+                            opacity={0.6}
                             dash={[8, 10]}
                           />
                         ))}
@@ -425,7 +459,7 @@ export default function SlidePreview({
                               y={safeArea.y}
                               width={safeArea.width}
                               height={safeArea.height}
-                              stroke="rgba(14,116,144,0.9)"
+                              stroke="var(--color-primary-indigo, #5B3FFF)"
                               strokeWidth={3}
                               dash={[12, 8]}
                               cornerRadius={30}

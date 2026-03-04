@@ -20,7 +20,7 @@ export type DesktopContext = {
 };
 
 export type AspectRatio = "4:5" | "1:1";
-export type FontPreset = "geist" | "modern" | "editorial";
+export type FontPreset = "modern" | "technical" | "editorial";
 
 export type SavedProject = {
   version: number;

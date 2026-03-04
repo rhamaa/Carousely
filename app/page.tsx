@@ -40,7 +40,7 @@ export default function Home() {
   const [selectedTheme, setSelectedTheme] = useState<keyof typeof themeStyles>("aurora");
   const [preferMarkdownAspectRatio, setPreferMarkdownAspectRatio] = useState(true);
   const [preferMarkdownTheme, setPreferMarkdownTheme] = useState(true);
-  const [fontPreset, setFontPreset] = useState<FontPreset>("geist");
+  const [fontPreset, setFontPreset] = useState<FontPreset>("modern");
   const [slideOrder, setSlideOrder] = useState<string[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [draggingSlideId, setDraggingSlideId] = useState<string | null>(null);

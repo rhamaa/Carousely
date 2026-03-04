@@ -39,7 +39,7 @@ export default function MarkdownEditor({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e] relative">
+    <div className="h-full flex flex-col bg-transparent relative w-full border-r border-white/5 backdrop-blur-md">
       <div className="flex-1 overflow-hidden relative">
         <textarea
           ref={editorTextareaRef}
@@ -48,24 +48,24 @@ export default function MarkdownEditor({
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
-          className="w-full h-full p-6 bg-transparent text-gray-300 font-mono text-sm resize-none focus:outline-none focus:ring-0 leading-relaxed custom-scrollbar"
+          className="w-full h-full p-6 bg-transparent text-gray-200 font-mono text-sm resize-none focus:outline-none focus:ring-0 leading-relaxed custom-scrollbar selection:bg-indigo/40 selection:text-white"
           placeholder={markdownHint}
           spellCheck={false}
         />
-        <div className="absolute bottom-4 right-6 pointer-events-none opacity-20">
+        <div className="absolute bottom-4 right-6 pointer-events-none opacity-10 text-indigo mix-blend-screen">
           <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
             <path d="M20.5 4h-17A1.5 1.5 0 002 5.5v13A1.5 1.5 0 003.5 20h17a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0020.5 4zm-17 1h17v13h-17v-13zM5 7h4v2H5V7zm6 0h8v2h-8V7zm-6 4h14v2H5v-2zm0 4h14v2H5v-2z" />
           </svg>
         </div>
       </div>
-      <div className="h-12 border-t border-gray-800 bg-[#252526] px-4 flex items-center justify-between shrink-0">
+      <div className="h-12 border-t border-white/10 bg-black/20 px-4 flex items-center justify-between shrink-0 backdrop-blur-md">
         <div className="flex gap-2">
           {quickSnippets.map((snippet) => (
             <button
               key={snippet.label}
               type="button"
               onClick={() => insertSnippet(snippet.content)}
-              className="text-xs font-mono px-3 py-1.5 rounded bg-[#333333] hover:bg-[#444444] text-gray-300 transition-colors border border-gray-700"
+              className="text-xs font-mono px-3 py-1.5 rounded-full bg-white/5 hover:bg-indigo hover:text-white text-gray-300 transition-colors border border-white/10 shadow-sm"
               title={`Insert ${snippet.label}`}
             >
               +{snippet.label}
@@ -73,12 +73,12 @@ export default function MarkdownEditor({
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-xs text-gray-500 font-mono">
+          <div className="text-xs text-gray-400 font-mono">
             {markdown.split("\n").length} lines
           </div>
           <div
             className={`text-xs px-2 py-1 rounded flex items-center gap-1.5 ${
-              lintIssueCount > 0 ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"
+              lintIssueCount > 0 ? "bg-coral/20 text-coral" : "bg-lime/20 text-lime"
             }`}
           >
             {lintIssueCount > 0 ? (

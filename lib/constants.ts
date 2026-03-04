@@ -125,26 +125,26 @@ export const fontPresets: Record<
   FontPreset,
   { label: string; headingVar: string; bodyVar: string; fallbackHeading: string; fallbackBody: string }
 > = {
-  geist: {
-    label: "Geist Sans",
-    headingVar: "--font-geist-sans",
-    bodyVar: "--font-geist-sans",
-    fallbackHeading: "system-ui",
-    fallbackBody: "system-ui",
-  },
   modern: {
-    label: "Space Grotesk",
-    headingVar: "--font-space-grotesk",
-    bodyVar: "--font-geist-sans",
-    fallbackHeading: "Space Grotesk",
-    fallbackBody: "system-ui",
+    label: "Poppins & Inter",
+    headingVar: "--font-poppins",
+    bodyVar: "--font-inter",
+    fallbackHeading: "Poppins",
+    fallbackBody: "Inter",
+  },
+  technical: {
+    label: "Mono & Inter",
+    headingVar: "--font-jetbrains-mono",
+    bodyVar: "--font-inter",
+    fallbackHeading: "JetBrains Mono",
+    fallbackBody: "Inter",
   },
   editorial: {
-    label: "Playfair + Geist",
-    headingVar: "--font-playfair-display",
-    bodyVar: "--font-geist-sans",
-    fallbackHeading: "Playfair Display",
-    fallbackBody: "system-ui",
+    label: "Poppins Bold",
+    headingVar: "--font-poppins",
+    bodyVar: "--font-poppins",
+    fallbackHeading: "Poppins",
+    fallbackBody: "Poppins",
   },
 };
 

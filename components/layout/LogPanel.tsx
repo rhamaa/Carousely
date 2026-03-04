@@ -16,18 +16,18 @@ export default function LogPanel({ logs, onClear }: LogPanelProps) {
   }, [logs]);
 
   return (
-    <div className="h-48 border-t border-gray-800 bg-[#0f111a] flex flex-col font-mono text-sm shadow-inner shrink-0">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#151822] border-b border-gray-800/50 shadow-sm z-10">
+    <div className="h-48 border-t border-white/5 bg-black/40 backdrop-blur-md flex flex-col font-mono text-sm shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-black/20 border-b border-white/5 z-10">
         <div className="flex items-center gap-2">
           <span className="text-gray-400 font-semibold tracking-wide text-xs">TERMINAL</span>
-          <span className="text-gray-600 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800/50">
+          <span className="text-gray-300 text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10">
             {logs.length} events
           </span>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="text-gray-500 hover:text-gray-300 transition-colors text-xs flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-800/50"
+          className="text-gray-400 hover:text-white transition-colors text-xs flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5"
           title="Clear Logs"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -54,7 +54,7 @@ export default function LogPanel({ logs, onClear }: LogPanelProps) {
           logs.map((log) => (
             <div
               key={log.id}
-              className="px-2 py-1 rounded hover:bg-white/5 transition-colors group flex items-start gap-3 border border-transparent hover:border-white/5"
+              className="px-2 py-1 rounded hover:bg-white/5 transition-colors group flex items-start gap-3 border border-transparent hover:border-white/10"
             >
               <span className="text-gray-500 shrink-0 text-[11px] mt-0.5 min-w-[70px] font-medium tabular-nums">
                 {log.timestamp}
@@ -62,17 +62,17 @@ export default function LogPanel({ logs, onClear }: LogPanelProps) {
 
               <span className="shrink-0 mt-0.5">
                 {log.level === "info" && (
-                  <span className="text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                  <span className="text-sky bg-sky/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
                     INFO
                   </span>
                 )}
                 {log.level === "success" && (
-                  <span className="text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                  <span className="text-lime bg-lime/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
                     DONE
                   </span>
                 )}
                 {log.level === "error" && (
-                  <span className="text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                  <span className="text-coral bg-coral/10 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
                     FAIL
                   </span>
                 )}
@@ -81,9 +81,9 @@ export default function LogPanel({ logs, onClear }: LogPanelProps) {
               <span
                 className={`flex-1 break-words leading-relaxed ${
                   log.level === "error"
-                    ? "text-rose-300"
+                    ? "text-coral/90"
                     : log.level === "success"
-                      ? "text-emerald-300"
+                      ? "text-lime/90"
                       : "text-gray-300"
                 }`}
               >
