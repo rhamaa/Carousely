@@ -403,7 +403,7 @@ export default function Home() {
         }
 
         const exported = await invoke<number>("export_png_folder", {
-          folder_path: selectedDir,
+          folderPath: selectedDir,
           slides: payload,
         });
         
@@ -439,7 +439,7 @@ export default function Home() {
       });
       
       if (isDesktopShell) {
-        const uint8array = await zip.generateAsync({ type: "uint8array" });
+        const base64 = await zip.generateAsync({ type: "base64" });
         
         const { save: saveDialogPlugin } = await import("@tauri-apps/plugin-dialog");
         const selectedFile = await saveDialogPlugin({
@@ -452,8 +452,7 @@ export default function Home() {
           return; // user cancelled
         }
 
-        const { writeFile } = await import("@tauri-apps/plugin-fs");
-        await writeFile(selectedFile, uint8array);
+        await invoke("save_base64_file", { path: selectedFile, data: base64 });
         
         setNotice("ZIP berhasil disimpan.");
         pushLog("success", `ZIP berisi ${payload.length} slide berhasil disimpan ke: ${selectedFile}`);

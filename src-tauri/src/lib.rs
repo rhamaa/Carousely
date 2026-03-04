@@ -107,6 +107,14 @@ fn export_png_direct(slides: Vec<ExportSlidePayload>) -> Result<usize, String> {
   Ok(exported)
 }
 
+#[tauri::command]
+fn save_base64_file(path: String, data: String) -> Result<(), String> {
+  let bytes = general_purpose::STANDARD
+    .decode(data)
+    .map_err(|_| "Gagal decode base64 file.".to_string())?;
+  std::fs::write(path, bytes).map_err(|err| err.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -118,7 +126,8 @@ pub fn run() {
       save_project_file,
       open_project_file,
       export_png_folder,
-      export_png_direct
+      export_png_direct,
+      save_base64_file
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
