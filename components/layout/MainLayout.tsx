@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Topbar from "./Topbar";
 import type { AspectRatio, FontPreset, DesktopContext } from "@/lib/types";
 import { themeStyles } from "@/lib/constants";
+import type { ThemeKey } from "@/lib/constants";
 
 type MainLayoutProps = {
   sidebar: ReactNode;
@@ -13,8 +14,8 @@ type MainLayoutProps = {
   activeAspectRatio: AspectRatio;
   setAspectRatio: (value: AspectRatio) => void;
   aspectRatioControlledByMarkdown: boolean;
-  activeThemeKey: keyof typeof themeStyles;
-  setSelectedTheme: (value: keyof typeof themeStyles) => void;
+  activeThemeKey: ThemeKey;
+  setSelectedTheme: (value: ThemeKey) => void;
   themeControlledByMarkdown: boolean;
   fontPreset: FontPreset;
   setFontPreset: (value: FontPreset) => void;
@@ -30,8 +31,6 @@ type MainLayoutProps = {
   isExportingPng: boolean;
   onExportZip: () => void;
   isExportingZip: boolean;
-  onExportFolder: () => void;
-  isExportingFolder: boolean;
 };
 
 export default function MainLayout({

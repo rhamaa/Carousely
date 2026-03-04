@@ -1,6 +1,8 @@
 import type { Slide, KonvaRuntime, StageHandle } from "@/lib/types";
 import { themeStyles } from "@/lib/constants";
 import { estimateTextHeight, clamp } from "@/lib/utils";
+import { useThemeTokens } from "@/lib/use-theme-tokens";
+import type { ThemeKey } from "@/lib/constants";
 import type { ReactNode } from "react";
 
 type SlidePreviewProps = {
@@ -12,7 +14,7 @@ type SlidePreviewProps = {
   activeFont: { label: string };
   headingFontFamily: string;
   bodyFontFamily: string;
-  activeTheme: typeof themeStyles[keyof typeof themeStyles];
+  activeThemeKey: ThemeKey;
   showGuides: boolean;
   showSafeArea: boolean;
   konvaRuntime: KonvaRuntime | null;
@@ -28,7 +30,7 @@ export default function SlidePreview({
   activeFont,
   headingFontFamily,
   bodyFontFamily,
-  activeTheme,
+  activeThemeKey,
   showGuides,
   showSafeArea,
   konvaRuntime,
@@ -36,6 +38,7 @@ export default function SlidePreview({
 }: SlidePreviewProps) {
   const previewWidth = 340;
   const previewHeight = Math.round((stageSize.height / stageSize.width) * previewWidth);
+  const activeTheme = useThemeTokens(activeThemeKey);
 
   const StageComponent = konvaRuntime?.Stage;
   const LayerComponent = konvaRuntime?.Layer;
@@ -77,8 +80,8 @@ export default function SlidePreview({
               key={slide.id}
               onClick={() => setActiveSlideId(slide.id)}
               className={`relative rounded-xl overflow-hidden transition-all duration-300 shadow-lg cursor-pointer ${
-                activeSlideId === slide.id 
-                  ? "ring-2 ring-cyan-500 ring-offset-4 ring-offset-[#1a1a1a] shadow-cyan-500/20" 
+                activeSlideId === slide.id
+                  ? "ring-2 ring-cyan-500 ring-offset-4 ring-offset-[#1a1a1a] shadow-cyan-500/20"
                   : "ring-1 ring-white/5 hover:ring-white/20"
               }`}
               style={{ width: previewWidth }}
@@ -248,10 +251,13 @@ export default function SlidePreview({
                                 width={textWidth + 16}
                                 height={cardHeight}
                                 fill={activeTheme.card}
-                                cornerRadius={24}
-                                shadowColor="#0f172a"
-                                shadowBlur={16}
-                                shadowOpacity={0.08}
+                                cornerRadius={activeTheme.shapeRadius}
+                                stroke={activeTheme.shapeBorderColor}
+                                strokeWidth={activeTheme.shapeBorderWidth}
+                                shadowColor={activeTheme.shapeShadowColor}
+                                shadowBlur={activeTheme.shapeShadowBlur}
+                                shadowOffsetX={activeTheme.shapeShadowX}
+                                shadowOffsetY={activeTheme.shapeShadowY}
                               />
                               <TextComponent
                                 x={safeArea.x + 48}
@@ -272,6 +278,10 @@ export default function SlidePreview({
                         if (block.kind === "cta") {
                           const buttonHeight = 90;
                           const buttonY = clamp(cursorY, minY, maxY - buttonHeight);
+
+                          const bgBtn = block.style === "secondary" ? "transparent" : activeTheme.accent;
+                          const txtBtn = block.style === "secondary" ? activeTheme.accent : activeTheme.card;
+
                           nodes.push(
                             <GroupComponent key={key}>
                               <RectComponent
@@ -279,10 +289,14 @@ export default function SlidePreview({
                                 y={buttonY}
                                 width={textWidth + 16}
                                 height={buttonHeight}
-                                cornerRadius={999}
-                                fill={block.style === "secondary" ? "transparent" : activeTheme.accent}
+                                cornerRadius={activeTheme.shapeRadius > 0 ? 999 : 0}
+                                fill={bgBtn}
                                 stroke={activeTheme.accent}
-                                strokeWidth={3}
+                                strokeWidth={Math.max(3, activeTheme.shapeBorderWidth)}
+                                shadowColor={activeTheme.shapeShadowColor}
+                                shadowBlur={activeTheme.shapeShadowBlur}
+                                shadowOffsetX={activeTheme.shapeShadowX / 2}
+                                shadowOffsetY={activeTheme.shapeShadowY / 2}
                               />
                               <TextComponent
                                 x={safeArea.x + 24}
@@ -290,7 +304,7 @@ export default function SlidePreview({
                                 width={textWidth + 16}
                                 align="center"
                                 text={block.text}
-                                fill={block.style === "secondary" ? activeTheme.accent : "#ffffff"}
+                                fill={txtBtn}
                                 fontSize={30}
                                 fontStyle="bold"
                                 fontFamily={bodyFontFamily}
@@ -315,7 +329,13 @@ export default function SlidePreview({
                                 width={textWidth + 16}
                                 height={cardHeight}
                                 fill={activeTheme.card}
-                                cornerRadius={24}
+                                cornerRadius={activeTheme.shapeRadius}
+                                stroke={activeTheme.shapeBorderColor}
+                                strokeWidth={activeTheme.shapeBorderWidth}
+                                shadowColor={activeTheme.shapeShadowColor}
+                                shadowBlur={activeTheme.shapeShadowBlur}
+                                shadowOffsetX={activeTheme.shapeShadowX}
+                                shadowOffsetY={activeTheme.shapeShadowY}
                               />
                               {block.title ? (
                                 <TextComponent
@@ -361,11 +381,15 @@ export default function SlidePreview({
                               y={cursorY}
                               width={textWidth + 16}
                               height={imageHeight}
-                              fill="#e2e8f0"
+                              fill={activeTheme.card}
                               stroke={activeTheme.accent}
-                              strokeWidth={2}
-                              dash={[10, 8]}
-                              cornerRadius={24}
+                              strokeWidth={Math.max(2, activeTheme.shapeBorderWidth)}
+                              dash={activeTheme.shapeBorderWidth > 0 ? undefined : [10, 8]}
+                              cornerRadius={activeTheme.shapeRadius}
+                              shadowColor={activeTheme.shapeShadowColor}
+                              shadowBlur={activeTheme.shapeShadowBlur}
+                              shadowOffsetX={activeTheme.shapeShadowX}
+                              shadowOffsetY={activeTheme.shapeShadowY}
                             />
                             <TextComponent
                               x={safeArea.x + 24}

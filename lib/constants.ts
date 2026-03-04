@@ -26,28 +26,94 @@ Pakai Carousely untuk menulis satu markdown dan generate semua slide otomatis.
 ![preview](./assets/example-cover.png)
 `;
 
-export const themeStyles = {
+export interface ThemeTokens {
+  bgStart: string;
+  bgEnd: string;
+  text: string;
+  accent: string;
+  card: string;
+  shapeBorderWidth: number;
+  shapeBorderColor: string;
+  shapeShadowX: number;
+  shapeShadowY: number;
+  shapeShadowBlur: number;
+  shapeShadowColor: string;
+  shapeRadius: number;
+}
+
+export type ThemeKey = "aurora" | "ember" | "mono" | "soft-brutalism" | "neumorphism";
+
+export const themeStyles: Record<ThemeKey, ThemeTokens> = {
   aurora: {
-    bgStart: "#baf3ff",
-    bgEnd: "#ecfeff",
-    text: "#0f172a",
-    accent: "#0e7490",
-    card: "#f0f9ff",
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 0,
+    shapeBorderColor: "transparent",
+    shapeShadowX: 0,
+    shapeShadowY: 4,
+    shapeShadowBlur: 12,
+    shapeShadowColor: "rgba(0, 0, 0, 0.1)",
+    shapeRadius: 24,
   },
   ember: {
-    bgStart: "#ffd8c2",
-    bgEnd: "#fff2e8",
-    text: "#3f1d13",
-    accent: "#b42318",
-    card: "#fff1ea",
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 2,
+    shapeBorderColor: "#ffd8c2",
+    shapeShadowX: 0,
+    shapeShadowY: 8,
+    shapeShadowBlur: 16,
+    shapeShadowColor: "rgba(180, 35, 24, 0.15)",
+    shapeRadius: 16,
   },
   mono: {
-    bgStart: "#e4e4e7",
-    bgEnd: "#f8fafc",
-    text: "#111827",
-    accent: "#1f2937",
-    card: "#ffffff",
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 1,
+    shapeBorderColor: "#d1d5db",
+    shapeShadowX: 0,
+    shapeShadowY: 2,
+    shapeShadowBlur: 4,
+    shapeShadowColor: "rgba(0, 0, 0, 0.05)",
+    shapeRadius: 8,
   },
+  "soft-brutalism": {
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 4,
+    shapeBorderColor: "#000000",
+    shapeShadowX: 12,
+    shapeShadowY: 12,
+    shapeShadowBlur: 0,
+    shapeShadowColor: "#000000",
+    shapeRadius: 0,
+  },
+  neumorphism: {
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 0,
+    shapeBorderColor: "transparent",
+    shapeShadowX: 10,
+    shapeShadowY: 10,
+    shapeShadowBlur: 20,
+    shapeShadowColor: "rgba(163, 177, 198, 0.7)",
+    shapeRadius: 30,
+  }
 };
 
 export const canvasSize: Record<AspectRatio, { width: number; height: number }> = {

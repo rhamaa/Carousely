@@ -11,6 +11,7 @@
     "fs:default",
     "core:path:default",
     "os:default",
-    "log:default"
+    "log:default",
+    "core:window:allow-set-title"
   ]
 }

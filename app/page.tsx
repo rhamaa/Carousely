@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import JSZip from "jszip";
+
+import { openProjectDialog, saveProject, saveProjectAsDialog } from "@/lib/filesystem";
 
 import type {
   AspectRatio,
@@ -42,6 +45,7 @@ export default function Home() {
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [draggingSlideId, setDraggingSlideId] = useState<string | null>(null);
   const [projectPath, setProjectPath] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
   const [showSafeArea, setShowSafeArea] = useState(true);
   const [context, setContext] = useState<DesktopContext | null>(null);
@@ -50,7 +54,6 @@ export default function Home() {
   const [notice, setNotice] = useState<string>("");
   const [isExportingPng, setIsExportingPng] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
-  const [isExportingFolder, setIsExportingFolder] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [konvaRuntime, setKonvaRuntime] = useState<KonvaRuntime | null>(null);
   
@@ -88,7 +91,16 @@ export default function Home() {
   
   const manualAspectRatio = aspectRatio;
   const manualTheme = selectedTheme;
-  const isDesktopShell = typeof window !== "undefined" && Boolean((window as Window & { __TAURI_IPC__?: unknown }).__TAURI_IPC__);
+  const [isDesktopShell, setIsDesktopShell] = useState(false);
+
+  useEffect(() => {
+    setIsDesktopShell(
+      typeof window !== "undefined" && (
+        Boolean((window as any).__TAURI_INTERNALS__) || 
+        Boolean((window as any).__TAURI_IPC__)
+      )
+    );
+  }, []);
 
   const markdownAspectRatio = parsed.metadata.aspectRatio;
   const markdownTheme = parsed.metadata.theme ?? parsed.metadata.brand;
@@ -199,6 +211,7 @@ export default function Home() {
   useEffect(() => {
     if (!autosaveReadyRef.current || typeof window === "undefined") return;
 
+    setIsDirty(true);
     const payload: SavedProject = {
       version: 1,
       markdown,
@@ -209,6 +222,26 @@ export default function Home() {
     };
     window.localStorage.setItem(autosaveStorageKey, JSON.stringify(payload));
   }, [markdown, aspectRatio, selectedTheme, fontPreset, slideOrder]);
+
+  // Update window title based on project path and dirty state
+  useEffect(() => {
+    if (!isDesktopShell) return;
+    const filename = projectPath ? projectPath.split(/[/\\]/).pop() : "Untitled";
+    const title = `${isDirty ? "* " : ""}${filename} - Carousely`;
+    getCurrentWindow().setTitle(title).catch(console.error);
+  }, [projectPath, isDirty, isDesktopShell]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSaveProject();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [projectPath, isDirty, markdown, aspectRatio, selectedTheme, fontPreset, slideOrder]);
 
   const collectExportSlides = useCallback((): ExportSlidePayload[] => {
     if (!konvaRuntime) throw new Error("Konva belum siap. Tunggu preview termuat.");
@@ -280,14 +313,11 @@ export default function Home() {
     const json = JSON.stringify(buildProjectPayload(), null, 2);
     if (isDesktopShell) {
       try {
-        const target = await saveDialog({
-          title: "Simpan project Carousely",
-          defaultPath: projectPath ?? "project.carousely.json",
-          filters: [{ name: "Carousely Project", extensions: ["json"] }],
-        });
-        if (!target || Array.isArray(target)) return;
-        await invoke("save_project_file", { path: target, content: json });
+        const target = await saveProjectAsDialog(json);
+        if (!target) return;
+        
         setProjectPath(target);
+        setIsDirty(false);
         setNotice("Project berhasil disimpan.");
         pushLog("success", `Project disimpan ke ${target}`);
         return;
@@ -298,9 +328,10 @@ export default function Home() {
         return;
       }
     }
-    downloadBlob(new Blob([json], { type: "application/json" }), "carousely-project.json");
-    setNotice("Project JSON berhasil diunduh.");
-    pushLog("info", "Project diunduh sebagai JSON (web mode).");
+    downloadBlob(new Blob([json], { type: "application/json" }), "carousely-project.carousely");
+    setIsDirty(false);
+    setNotice("Project file berhasil diunduh.");
+    pushLog("info", "Project diunduh (web mode).");
   };
 
   const handleSaveProject = async () => {
@@ -310,7 +341,8 @@ export default function Home() {
     }
     try {
       const json = JSON.stringify(buildProjectPayload(), null, 2);
-      await invoke("save_project_file", { path: projectPath, content: json });
+      await saveProject(projectPath, json);
+      setIsDirty(false);
       setNotice("Project diperbarui.");
       pushLog("success", `Project diperbarui di ${projectPath}`);
     } catch (err) {
@@ -325,19 +357,27 @@ export default function Home() {
       setNotice("Open project native hanya tersedia di mode desktop.");
       return;
     }
+    
+    if (isDirty) {
+      const confirm = window.confirm("Ada perubahan yang belum disimpan. Yakin ingin membuka project lain?");
+      if (!confirm) return;
+    }
+
     try {
-      const selected = await openDialog({
-        title: "Buka project Carousely",
-        multiple: false,
-        filters: [{ name: "Carousely Project", extensions: ["json"] }],
-      });
-      if (!selected || Array.isArray(selected)) return;
-      const content = await invoke<string>("open_project_file", { path: selected });
-      const payload = JSON.parse(content) as SavedProject;
+      const result = await openProjectDialog();
+      if (!result) return;
+      
+      const payload = JSON.parse(result.content) as SavedProject;
+      autosaveReadyRef.current = false; // pause autosave/isDirty trigger
       applyProjectPayload(payload);
-      setProjectPath(selected);
+      setProjectPath(result.path);
+      setIsDirty(false);
+      
+      // re-enable autosave after state updates
+      setTimeout(() => { autosaveReadyRef.current = true; }, 100);
+      
       setNotice("Project berhasil dibuka.");
-      pushLog("success", `Project dibuka dari ${selected}`);
+      pushLog("success", `Project dibuka dari ${result.path}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal membuka project.";
       setNotice(message);
@@ -352,9 +392,23 @@ export default function Home() {
       const payload = collectExportSlides();
       
       if (isDesktopShell) {
-        const exported = await invoke<number>("export_png_direct", { slides: payload });
-        setNotice(`Ekspor folder selesai (${exported} file).`);
-        pushLog("success", `PNG diekspor otomatis ke folder Downloads/Carousely_Export`);
+        const selectedDir = await openDialog({
+          title: "Pilih folder tujuan ekspor PNG",
+          directory: true,
+          multiple: false,
+        });
+
+        if (!selectedDir || Array.isArray(selectedDir)) {
+          return; // user cancelled
+        }
+
+        const exported = await invoke<number>("export_png_folder", {
+          folder_path: selectedDir,
+          slides: payload,
+        });
+        
+        setNotice(`Ekspor PNG selesai (${exported} file).`);
+        pushLog("success", `PNG diekspor ke folder: ${selectedDir}`);
       } else {
         payload.forEach((slide) => {
           const anchor = document.createElement("a");
@@ -386,15 +440,23 @@ export default function Home() {
       
       if (isDesktopShell) {
         const uint8array = await zip.generateAsync({ type: "uint8array" });
-        const { downloadDir, join } = await import("@tauri-apps/api/path");
+        
+        const { save: saveDialogPlugin } = await import("@tauri-apps/plugin-dialog");
+        const selectedFile = await saveDialogPlugin({
+          title: "Simpan File ZIP",
+          defaultPath: "carousely-slides.zip",
+          filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+        });
+
+        if (!selectedFile) {
+          return; // user cancelled
+        }
+
         const { writeFile } = await import("@tauri-apps/plugin-fs");
+        await writeFile(selectedFile, uint8array);
         
-        const dir = await downloadDir();
-        const filePath = await join(dir, "carousely-slides.zip");
-        await writeFile(filePath, uint8array);
-        
-        setNotice("ZIP berhasil disimpan ke folder Downloads.");
-        pushLog("success", `ZIP berisi ${payload.length} slide berhasil disimpan ke Downloads.`);
+        setNotice("ZIP berhasil disimpan.");
+        pushLog("success", `ZIP berisi ${payload.length} slide berhasil disimpan ke: ${selectedFile}`);
       } else {
         const blob = await zip.generateAsync({ type: "blob" });
         downloadBlob(blob, "carousely-slides.zip");
@@ -407,36 +469,6 @@ export default function Home() {
       pushLog("error", message);
     } finally {
       setIsExportingZip(false);
-    }
-  };
-
-  const handleExportToFolder = async () => {
-    if (!isDesktopShell) {
-      setNotice("Ekspor ke folder native hanya tersedia di mode desktop.");
-      return;
-    }
-    if (isExportingFolder) return;
-    setIsExportingFolder(true);
-    try {
-      const selected = await openDialog({
-        title: "Pilih folder tujuan ekspor",
-        directory: true,
-        multiple: false,
-      });
-      if (!selected || Array.isArray(selected)) return;
-      const payload = collectExportSlides();
-      const exported = await invoke<number>("export_png_folder", {
-        folder_path: selected,
-        slides: payload,
-      });
-      setNotice(`Ekspor folder selesai (${exported} file).`);
-      pushLog("success", `PNG diekspor ke folder ${selected}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal ekspor ke folder.";
-      setNotice(message);
-      pushLog("error", message);
-    } finally {
-      setIsExportingFolder(false);
     }
   };
 
@@ -538,7 +570,7 @@ export default function Home() {
           activeFont={activeFont}
           headingFontFamily={headingFontFamily}
           bodyFontFamily={bodyFontFamily}
-          activeTheme={activeTheme}
+          activeThemeKey={activeThemeKey as import('@/lib/constants').ThemeKey}
           showGuides={showGuides}
           showSafeArea={showSafeArea}
           konvaRuntime={konvaRuntime}
@@ -581,8 +613,6 @@ export default function Home() {
       isExportingPng={isExportingPng}
       onExportZip={() => void handleExportZip()}
       isExportingZip={isExportingZip}
-      onExportFolder={() => void handleExportToFolder()}
-      isExportingFolder={isExportingFolder}
     />
   );
 }

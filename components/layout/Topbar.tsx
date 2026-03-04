@@ -1,12 +1,13 @@
 import type { AspectRatio, FontPreset, DesktopContext } from "@/lib/types";
 import { themeStyles, fontPresets } from "@/lib/constants";
+import type { ThemeKey } from "@/lib/constants";
 
 type TopbarProps = {
   activeAspectRatio: AspectRatio;
   setAspectRatio: (value: AspectRatio) => void;
   aspectRatioControlledByMarkdown: boolean;
-  activeThemeKey: keyof typeof themeStyles;
-  setSelectedTheme: (value: keyof typeof themeStyles) => void;
+  activeThemeKey: ThemeKey;
+  setSelectedTheme: (value: ThemeKey) => void;
   themeControlledByMarkdown: boolean;
   fontPreset: FontPreset;
   setFontPreset: (value: FontPreset) => void;
@@ -22,8 +23,6 @@ type TopbarProps = {
   isExportingPng: boolean;
   onExportZip: () => void;
   isExportingZip: boolean;
-  onExportFolder: () => void;
-  isExportingFolder: boolean;
 };
 
 export default function Topbar({
@@ -47,8 +46,6 @@ export default function Topbar({
   isExportingPng,
   onExportZip,
   isExportingZip,
-  onExportFolder,
-  isExportingFolder,
 }: TopbarProps) {
   return (
     <div className="h-14 border-b border-gray-800 bg-[#252526] px-4 flex items-center justify-between shrink-0 select-none">
@@ -95,9 +92,8 @@ export default function Topbar({
           <select
             value={activeAspectRatio}
             onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
-            disabled={aspectRatioControlledByMarkdown}
-            className="bg-[#333333] border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 outline-none focus:border-cyan-500 disabled:opacity-50"
-            title={aspectRatioControlledByMarkdown ? "Controlled by markdown frontmatter" : "Aspect Ratio"}
+            className="bg-[#333333] border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 outline-none focus:border-cyan-500"
+            title={aspectRatioControlledByMarkdown ? "Currently using markdown frontmatter (select to override)" : "Aspect Ratio"}
           >
             <option value="4:5">Portrait 4:5</option>
             <option value="1:1">Square 1:1</option>
@@ -105,10 +101,9 @@ export default function Topbar({
 
           <select
             value={activeThemeKey}
-            onChange={(e) => setSelectedTheme(e.target.value as keyof typeof themeStyles)}
-            disabled={themeControlledByMarkdown}
-            className="bg-[#333333] border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 outline-none focus:border-cyan-500 disabled:opacity-50"
-            title={themeControlledByMarkdown ? "Controlled by markdown frontmatter" : "Theme"}
+            onChange={(e) => setSelectedTheme(e.target.value as ThemeKey)}
+            className="bg-[#333333] border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 outline-none focus:border-cyan-500"
+            title={themeControlledByMarkdown ? "Currently using markdown frontmatter (select to override)" : "Theme"}
           >
             {Object.keys(themeStyles).map((theme) => (
               <option key={theme} value={theme}>
@@ -171,16 +166,6 @@ export default function Topbar({
           >
             {isExportingZip ? "Zipping..." : "Export ZIP"}
           </button>
-          {isDesktopShell && (
-            <button
-              type="button"
-              onClick={onExportFolder}
-              disabled={isExportingFolder}
-              className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded transition-colors disabled:opacity-50"
-            >
-              {isExportingFolder ? "Exporting..." : "Export Folder"}
-            </button>
-          )}
         </div>
       </div>
     </div>

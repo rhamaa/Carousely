@@ -1,0 +1,81 @@
+/* Standardized Design Tokens for Slide Preview & Export */
+
+:root, [data-theme="aurora"] {
+  --slide-bg-start: #baf3ff;
+  --slide-bg-end: #ecfeff;
+  --slide-text: #0f172a;
+  --slide-accent: #0e7490;
+  --slide-card-bg: #f0f9ff;
+  
+  --shape-border-width: 0px;
+  --shape-border-color: transparent;
+  --shape-shadow-x: 0px;
+  --shape-shadow-y: 4px;
+  --shape-shadow-blur: 12px;
+  --shape-shadow-color: rgba(0, 0, 0, 0.1);
+  --shape-radius: 24px;
+}
+
+[data-theme="soft-brutalism"] {
+  --slide-bg-start: #f4f4f0;
+  --slide-bg-end: #f4f4f0;
+  --slide-text: #1a1a1a;
+  --slide-accent: #ff5e5e;
+  --slide-card-bg: #ffffff;
+  
+  --shape-border-width: 4px;
+  --shape-border-color: #000000;
+  --shape-shadow-x: 12px;
+  --shape-shadow-y: 12px;
+  --shape-shadow-blur: 0px;
+  --shape-shadow-color: #000000;
+  --shape-radius: 0px;
+}
+
+[data-theme="neumorphism"] {
+  --slide-bg-start: #e0e5ec;
+  --slide-bg-end: #e0e5ec;
+  --slide-text: #4a5568;
+  --slide-accent: #3182ce;
+  --slide-card-bg: #e0e5ec;
+  
+  --shape-border-width: 0px;
+  --shape-border-color: transparent;
+  --shape-shadow-x: 10px;
+  --shape-shadow-y: 10px;
+  --shape-shadow-blur: 20px;
+  --shape-shadow-color: rgba(163, 177, 198, 0.7);
+  --shape-radius: 30px;
+}
+
+[data-theme="ember"] {
+  --slide-bg-start: #ffd8c2;
+  --slide-bg-end: #fff2e8;
+  --slide-text: #3f1d13;
+  --slide-accent: #b42318;
+  --slide-card-bg: #fff1ea;
+  
+  --shape-border-width: 2px;
+  --shape-border-color: #ffd8c2;
+  --shape-shadow-x: 0px;
+  --shape-shadow-y: 8px;
+  --shape-shadow-blur: 16px;
+  --shape-shadow-color: rgba(180, 35, 24, 0.15);
+  --shape-radius: 16px;
+}
+
+[data-theme="mono"] {
+  --slide-bg-start: #e4e4e7;
+  --slide-bg-end: #f8fafc;
+  --slide-text: #111827;
+  --slide-accent: #1f2937;
+  --slide-card-bg: #ffffff;
+  
+  --shape-border-width: 1px;
+  --shape-border-color: #d1d5db;
+  --shape-shadow-x: 0px;
+  --shape-shadow-y: 2px;
+  --shape-shadow-blur: 4px;
+  --shape-shadow-color: rgba(0, 0, 0, 0.05);
+  --shape-radius: 8px;
+}
