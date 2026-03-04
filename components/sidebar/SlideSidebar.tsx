@@ -1,4 +1,5 @@
-import type { Slide } from "@/lib/types";
+import type { Slide, AspectRatio } from "@/lib/types";
+import { themeStyles } from "@/lib/constants";
 
 type SlideSidebarProps = {
   slides: Slide[];
@@ -8,6 +9,20 @@ type SlideSidebarProps = {
   onDragEnd: () => void;
   onDrop: (id: string) => void;
   onSelectSlide: (id: string) => void;
+  
+  // Settings props
+  activeAspectRatio: AspectRatio;
+  setAspectRatio: (value: AspectRatio) => void;
+  aspectRatioControlledByMarkdown: boolean;
+  activeThemeKey: string;
+  setSelectedTheme: (value: string) => void;
+  themeControlledByMarkdown: boolean;
+  showGuides: boolean;
+  setShowGuides: (value: boolean) => void;
+  showSafeArea: boolean;
+  setShowSafeArea: (value: boolean) => void;
+  customThemes: Record<string, string>;
+  onOpenCustomThemeDialog: () => void;
 };
 
 export default function SlideSidebar({
@@ -18,12 +33,103 @@ export default function SlideSidebar({
   onDragEnd,
   onDrop,
   onSelectSlide,
+  activeAspectRatio,
+  setAspectRatio,
+  aspectRatioControlledByMarkdown,
+  activeThemeKey,
+  setSelectedTheme,
+  themeControlledByMarkdown,
+  showGuides,
+  setShowGuides,
+  showSafeArea,
+  setShowSafeArea,
+  customThemes,
+  onOpenCustomThemeDialog,
 }: SlideSidebarProps) {
   return (
     <div className="h-full bg-black/20 backdrop-blur-md border-r border-white/5 flex flex-col w-64 shrink-0 overflow-hidden text-sm font-body">
-      <div className="h-10 border-b border-white/5 flex items-center px-4 shrink-0">
+      {/* Settings Section */}
+      <div className="p-4 border-b border-white/5 space-y-4 shrink-0">
+        <div className="text-gray-400 font-medium text-xs tracking-wider uppercase mb-2">Settings</div>
+        
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">Format</label>
+            <select
+              value={activeAspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+              className="bg-black/40 border border-white/10 text-gray-300 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo focus:ring-1 focus:ring-indigo/30 w-full"
+              title={aspectRatioControlledByMarkdown ? "Currently using markdown frontmatter (select to override)" : "Aspect Ratio"}
+            >
+              <option value="4:5" className="bg-[#1e1e1e]">Portrait 4:5</option>
+              <option value="1:1" className="bg-[#1e1e1e]">Square 1:1</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider flex justify-between">
+              <span>Theme</span>
+              <button 
+                onClick={onOpenCustomThemeDialog}
+                className="text-indigo hover:text-indigo/80 transition-colors"
+                title="Add custom theme"
+              >
+                + Add Custom
+              </button>
+            </label>
+            <select
+              value={activeThemeKey}
+              onChange={(e) => setSelectedTheme(e.target.value)}
+              className="bg-black/40 border border-white/10 text-gray-300 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo focus:ring-1 focus:ring-indigo/30 w-full"
+              title={themeControlledByMarkdown ? "Currently using markdown frontmatter (select to override)" : "Theme"}
+            >
+              <optgroup label="Default Themes">
+                {Object.keys(themeStyles).map((theme) => (
+                  <option key={theme} value={theme} className="bg-[#1e1e1e]">
+                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  </option>
+                ))}
+              </optgroup>
+              
+              {Object.keys(customThemes).length > 0 && (
+                <optgroup label="Custom Themes">
+                  {Object.keys(customThemes).map((theme) => (
+                    <option key={theme} value={theme} className="bg-[#1e1e1e]">
+                      {theme}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+          
+          <div className="flex items-center gap-4 pt-2">
+            <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer hover:text-white">
+              <input
+                type="checkbox"
+                checked={showGuides}
+                onChange={(e) => setShowGuides(e.target.checked)}
+                className="rounded border-white/20 bg-black/20 text-indigo focus:ring-indigo/30 w-3.5 h-3.5"
+              />
+              Guides
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer hover:text-white">
+              <input
+                type="checkbox"
+                checked={showSafeArea}
+                onChange={(e) => setShowSafeArea(e.target.checked)}
+                className="rounded border-white/20 bg-black/20 text-indigo focus:ring-indigo/30 w-3.5 h-3.5"
+              />
+              Safe Area
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Slides List */}
+      <div className="h-10 border-b border-white/5 flex items-center px-4 shrink-0 bg-white/5">
         <span className="text-gray-400 font-medium text-xs tracking-wider uppercase">Slides</span>
-        <span className="ml-auto bg-white/5 text-gray-400 text-[10px] px-2 py-0.5 rounded-full font-mono">
+        <span className="ml-auto bg-white/5 text-gray-400 text-[10px] px-2 py-0.5 rounded-full font-mono border border-white/10">
           {slides.length}
         </span>
       </div>

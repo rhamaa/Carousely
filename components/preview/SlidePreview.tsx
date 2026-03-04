@@ -11,9 +11,6 @@ type SlidePreviewProps = {
   setActiveSlideId: (id: string) => void;
   stageSize: { width: number; height: number };
   activeAspectRatio: string;
-  activeFont: { label: string };
-  headingFontFamily: string;
-  bodyFontFamily: string;
   activeThemeKey: ThemeKey;
   showGuides: boolean;
   showSafeArea: boolean;
@@ -27,9 +24,6 @@ export default function SlidePreview({
   setActiveSlideId,
   stageSize,
   activeAspectRatio,
-  activeFont,
-  headingFontFamily,
-  bodyFontFamily,
   activeThemeKey,
   showGuides,
   showSafeArea,
@@ -58,7 +52,7 @@ export default function SlidePreview({
         </div>
         <div className="text-[10px] text-gray-400 font-mono flex gap-3">
           <span>Mode: {activeAspectRatio}</span>
-          <span>Font: {activeFont.label}</span>
+          <span>Theme: {activeThemeKey}</span>
         </div>
       </div>
 
@@ -225,7 +219,7 @@ export default function SlidePreview({
                           fontSize={56}
                           lineHeight={1.2}
                           fontStyle="bold"
-                          fontFamily={headingFontFamily}
+                          fontFamily={activeTheme.fontHeading}
                         />,
                       );
 
@@ -244,7 +238,7 @@ export default function SlidePreview({
                               fill={activeTheme.text}
                               fontSize={30}
                               lineHeight={1.45}
-                              fontFamily={bodyFontFamily}
+                              fontFamily={activeTheme.fontBody}
                             />,
                           );
                           cursorY += height + 20;
@@ -266,7 +260,7 @@ export default function SlidePreview({
                                 fill={activeTheme.text}
                                 fontSize={28}
                                 lineHeight={1.4}
-                                fontFamily={bodyFontFamily}
+                                fontFamily={activeTheme.fontBody}
                               />,
                             );
                             cursorY += itemHeight + 12;
@@ -301,7 +295,7 @@ export default function SlidePreview({
                                 fill={activeTheme.text}
                                 fontSize={27}
                                 lineHeight={1.4}
-                                fontFamily={bodyFontFamily}
+                                fontFamily={activeTheme.fontBody}
                               />
                             </GroupComponent>,
                           );
@@ -341,7 +335,7 @@ export default function SlidePreview({
                                 fill={txtBtn}
                                 fontSize={30}
                                 fontStyle="bold"
-                                fontFamily={bodyFontFamily}
+                                fontFamily={activeTheme.fontBody}
                               />
                             </GroupComponent>,
                           );
@@ -381,7 +375,7 @@ export default function SlidePreview({
                                   fontSize={20}
                                   letterSpacing={2}
                                   fontStyle="bold"
-                                  fontFamily={bodyFontFamily}
+                                  fontFamily={activeTheme.fontBody}
                                 />
                               ) : null}
                               {block.items.map((item, agendaIndex) => {
@@ -396,7 +390,7 @@ export default function SlidePreview({
                                     text={`• ${item}`}
                                     fill={activeTheme.text}
                                     fontSize={24}
-                                    fontFamily={bodyFontFamily}
+                                    fontFamily={activeTheme.fontBody}
                                   />
                                 );
                               })}
@@ -434,7 +428,7 @@ export default function SlidePreview({
                               fill={activeTheme.accent}
                               fontSize={22}
                               fontStyle="bold"
-                              fontFamily={bodyFontFamily}
+                              fontFamily={activeTheme.fontBody}
                             />
                             <TextComponent
                               x={safeArea.x + 24}
@@ -444,7 +438,7 @@ export default function SlidePreview({
                               text={`${block.ratio ?? "auto"} · ${block.align ?? "center"}`}
                               fill="#334155"
                               fontSize={16}
-                              fontFamily={bodyFontFamily}
+                              fontFamily={activeTheme.fontBody}
                             />
                           </GroupComponent>,
                         );
@@ -475,7 +469,7 @@ export default function SlidePreview({
                               fill="#b91c1c"
                               fontSize={20}
                               fontStyle="bold"
-                              fontFamily={bodyFontFamily}
+                              fontFamily={activeTheme.fontBody}
                             />
                           )}
                         </>

@@ -12,7 +12,6 @@ import type {
   AspectRatio,
   DesktopContext,
   ExportSlidePayload,
-  FontPreset,
   KonvaRuntime,
   LogEntry,
   LogLevel,
@@ -20,8 +19,9 @@ import type {
   StageHandle,
   Slide,
 } from "@/lib/types";
-import { autosaveStorageKey, canvasSize, fontPresets, starterMarkdown, themeStyles } from "@/lib/constants";
-import { dataUrlToUint8Array, fileToDataUrl, resolveFontFamily } from "@/lib/utils";
+import type { ThemeKey } from "@/lib/constants";
+import { autosaveStorageKey, canvasSize, starterMarkdown, themeStyles } from "@/lib/constants";
+import { dataUrlToUint8Array, fileToDataUrl } from "@/lib/utils";
 import { parseMarkdownToSlides } from "@/lib/parser";
 
 import MainLayout from "@/components/layout/MainLayout";
@@ -29,6 +29,7 @@ import SlideSidebar from "@/components/sidebar/SlideSidebar";
 import MarkdownEditor from "@/components/editor/MarkdownEditor";
 import SlidePreview from "@/components/preview/SlidePreview";
 import LogPanel from "@/components/layout/LogPanel";
+import CustomThemeDialog from "@/components/editor/CustomThemeDialog";
 
 const makeCaption = (slides: Slide[]): string => {
   return slides.map((slide, index) => `${index + 1}. ${slide.title}`).join("\n");
@@ -40,7 +41,6 @@ export default function Home() {
   const [selectedTheme, setSelectedTheme] = useState<keyof typeof themeStyles>("aurora");
   const [preferMarkdownAspectRatio, setPreferMarkdownAspectRatio] = useState(true);
   const [preferMarkdownTheme, setPreferMarkdownTheme] = useState(true);
-  const [fontPreset, setFontPreset] = useState<FontPreset>("modern");
   const [slideOrder, setSlideOrder] = useState<string[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [draggingSlideId, setDraggingSlideId] = useState<string | null>(null);
@@ -56,6 +56,10 @@ export default function Home() {
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [konvaRuntime, setKonvaRuntime] = useState<KonvaRuntime | null>(null);
+  
+  // Custom Themes State
+  const [customThemes, setCustomThemes] = useState<Record<string, string>>({});
+  const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false);
   
   const stageRefs = useRef<Map<string, StageHandle>>(new Map());
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -118,9 +122,6 @@ export default function Home() {
   const activeAspectRatio = aspectRatioControlledByMarkdown ? parsed.resolved.aspectRatio : manualAspectRatio;
   const activeThemeKey = (themeControlledByMarkdown ? parsed.resolved.theme : manualTheme) as keyof typeof themeStyles;
   const activeTheme = themeStyles[activeThemeKey] ?? themeStyles.aurora;
-  const activeFont = fontPresets[fontPreset];
-  const headingFontFamily = resolveFontFamily(activeFont.headingVar, activeFont.fallbackHeading);
-  const bodyFontFamily = resolveFontFamily(activeFont.bodyVar, activeFont.fallbackBody);
   const stageSize = canvasSize[activeAspectRatio];
 
   useEffect(() => {
@@ -184,21 +185,23 @@ export default function Home() {
     }
   }, [orderedSlides, activeSlideId]);
 
+  // Initial load from localStorage
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || autosaveReadyRef.current) return;
 
     try {
+      const rawCustomThemes = window.localStorage.getItem("carousely_custom_themes");
+      if (rawCustomThemes) {
+        setCustomThemes(JSON.parse(rawCustomThemes));
+      }
+
       const raw = window.localStorage.getItem(autosaveStorageKey);
       if (raw) {
         const saved = JSON.parse(raw) as SavedProject;
         if (typeof saved.markdown === "string") setMarkdown(saved.markdown);
         if (saved.aspectRatio === "4:5" || saved.aspectRatio === "1:1") setAspectRatio(saved.aspectRatio);
-        if (saved.theme && saved.theme in themeStyles) setSelectedTheme(saved.theme as keyof typeof themeStyles);
-        if (saved.fontPreset && saved.fontPreset in fontPresets) setFontPreset(saved.fontPreset);
-        if (Array.isArray(saved.slideOrder)) setSlideOrder(saved.slideOrder);
-
-        setNotice("Autosave dimuat.");
-        pushLog("info", "Autosave project dipulihkan dari local storage.");
+        if (saved.theme) setSelectedTheme(saved.theme as ThemeKey);
+        if (saved.slideOrder) setSlideOrder(saved.slideOrder);
       }
     } catch {
       window.localStorage.removeItem(autosaveStorageKey);
@@ -207,6 +210,20 @@ export default function Home() {
       autosaveReadyRef.current = true;
     }
   }, [pushLog]);
+
+  // Handle markdown frontmatter overrides (only after initial load is done)
+  useEffect(() => {
+    if (!autosaveReadyRef.current) return;
+
+    if (parsed.resolved.theme && preferMarkdownTheme) {
+      if (parsed.resolved.theme in themeStyles || parsed.resolved.theme in customThemes) {
+        setSelectedTheme(parsed.resolved.theme as keyof typeof themeStyles);
+      }
+    }
+    if (parsed.resolved.aspectRatio && preferMarkdownAspectRatio) {
+      setAspectRatio(parsed.resolved.aspectRatio);
+    }
+  }, [parsed.resolved, preferMarkdownTheme, preferMarkdownAspectRatio, customThemes]);
 
   useEffect(() => {
     if (!autosaveReadyRef.current || typeof window === "undefined") return;
@@ -217,11 +234,11 @@ export default function Home() {
       markdown,
       aspectRatio,
       theme: selectedTheme,
-      fontPreset,
       slideOrder,
     };
-    window.localStorage.setItem(autosaveStorageKey, JSON.stringify(payload));
-  }, [markdown, aspectRatio, selectedTheme, fontPreset, slideOrder]);
+    localStorage.setItem(autosaveStorageKey, JSON.stringify(payload));
+    setIsDirty(true);
+  }, [markdown, aspectRatio, selectedTheme, slideOrder]);
 
   // Update window title based on project path and dirty state
   useEffect(() => {
@@ -241,7 +258,7 @@ export default function Home() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [projectPath, isDirty, markdown, aspectRatio, selectedTheme, fontPreset, slideOrder]);
+  }, [projectPath, isDirty, markdown, aspectRatio, selectedTheme, slideOrder]);
 
   const collectExportSlides = useCallback((): ExportSlidePayload[] => {
     if (!konvaRuntime) throw new Error("Konva belum siap. Tunggu preview termuat.");
@@ -279,7 +296,6 @@ export default function Home() {
       markdown,
       aspectRatio,
       theme: selectedTheme,
-      fontPreset,
       slideOrder,
     };
   };
@@ -288,8 +304,9 @@ export default function Home() {
     if (typeof payload.markdown !== "string") throw new Error("Format project tidak valid.");
     setMarkdown(payload.markdown);
     if (payload.aspectRatio === "4:5" || payload.aspectRatio === "1:1") setAspectRatio(payload.aspectRatio);
-    if (payload.theme && payload.theme in themeStyles) setSelectedTheme(payload.theme as keyof typeof themeStyles);
-    if (payload.fontPreset && payload.fontPreset in fontPresets) setFontPreset(payload.fontPreset);
+    if (payload.theme && (payload.theme in themeStyles || payload.theme in customThemes)) {
+      setSelectedTheme(payload.theme as keyof typeof themeStyles);
+    }
     if (Array.isArray(payload.slideOrder)) setSlideOrder(payload.slideOrder);
   };
 
@@ -533,8 +550,45 @@ export default function Home() {
     pushLog("info", `Urutan slide diperbarui (${draggingSlideId} -> ${targetSlideId}).`);
   };
 
+  const handleSaveCustomTheme = (themeName: string, cssContent: string) => {
+    const updatedThemes = { ...customThemes, [themeName]: cssContent };
+    setCustomThemes(updatedThemes);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("carousely_custom_themes", JSON.stringify(updatedThemes));
+    }
+    
+    // Inject style to document head
+    let styleEl = document.getElementById(`custom-theme-${themeName}`);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = `custom-theme-${themeName}`;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = cssContent;
+    
+    setSelectedTheme(themeName as keyof typeof themeStyles);
+    setIsThemeDialogOpen(false);
+    pushLog("success", `Tema custom '${themeName}' berhasil ditambahkan.`);
+  };
+
+  // Setup injected styles on mount
+  useEffect(() => {
+    if (typeof window === "undefined" || Object.keys(customThemes).length === 0) return;
+    
+    Object.entries(customThemes).forEach(([name, css]) => {
+      let styleEl = document.getElementById(`custom-theme-${name}`);
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = `custom-theme-${name}`;
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = css;
+    });
+  }, [customThemes]);
+
   return (
-    <MainLayout
+    <>
+      <MainLayout
       sidebar={
         <SlideSidebar
           slides={orderedSlides}
@@ -544,6 +598,25 @@ export default function Home() {
           onDragEnd={() => setDraggingSlideId(null)}
           onDrop={handleDropSlideOn}
           onSelectSlide={handleSelectSlide}
+          // Settings props moved to Sidebar
+          activeAspectRatio={activeAspectRatio as AspectRatio}
+          setAspectRatio={(value: AspectRatio) => {
+            setPreferMarkdownAspectRatio(false);
+            setAspectRatio(value);
+          }}
+          aspectRatioControlledByMarkdown={aspectRatioControlledByMarkdown}
+          activeThemeKey={activeThemeKey}
+          setSelectedTheme={(value: string) => {
+            setPreferMarkdownTheme(false);
+            setSelectedTheme(value as keyof typeof themeStyles);
+          }}
+          themeControlledByMarkdown={themeControlledByMarkdown}
+          showGuides={showGuides}
+          setShowGuides={setShowGuides}
+          showSafeArea={showSafeArea}
+          setShowSafeArea={setShowSafeArea}
+          customThemes={customThemes}
+          onOpenCustomThemeDialog={() => setIsThemeDialogOpen(true)}
         />
       }
       editor={
@@ -566,10 +639,7 @@ export default function Home() {
           setActiveSlideId={handleSelectSlide}
           stageSize={stageSize}
           activeAspectRatio={activeAspectRatio}
-          activeFont={activeFont}
-          headingFontFamily={headingFontFamily}
-          bodyFontFamily={bodyFontFamily}
-          activeThemeKey={activeThemeKey as import('@/lib/constants').ThemeKey}
+          activeThemeKey={activeThemeKey}
           showGuides={showGuides}
           showSafeArea={showSafeArea}
           konvaRuntime={konvaRuntime}
@@ -585,33 +655,20 @@ export default function Home() {
           }}
         />
       }
-      // Topbar props
-      activeAspectRatio={activeAspectRatio as AspectRatio}
-      setAspectRatio={(value) => {
-        setPreferMarkdownAspectRatio(false);
-        setAspectRatio(value);
-      }}
-      aspectRatioControlledByMarkdown={aspectRatioControlledByMarkdown}
-      activeThemeKey={activeThemeKey as keyof typeof themeStyles}
-      setSelectedTheme={(value) => {
-        setPreferMarkdownTheme(false);
-        setSelectedTheme(value);
-      }}
-      themeControlledByMarkdown={themeControlledByMarkdown}
-      fontPreset={fontPreset}
-      setFontPreset={setFontPreset}
-      showGuides={showGuides}
-      setShowGuides={setShowGuides}
-      showSafeArea={showSafeArea}
-      setShowSafeArea={setShowSafeArea}
       isDesktopShell={isDesktopShell}
       onOpenProject={handleOpenProject}
-      onSaveProject={() => void handleSaveProject()}
-      onSaveProjectAs={() => void handleSaveProjectAs()}
-      onExportPng={() => void handleExportPng()}
+      onSaveProject={handleSaveProject}
+      onSaveProjectAs={handleSaveProjectAs}
+      onExportPng={handleExportPng}
       isExportingPng={isExportingPng}
-      onExportZip={() => void handleExportZip()}
+      onExportZip={handleExportZip}
       isExportingZip={isExportingZip}
     />
+    <CustomThemeDialog
+      isOpen={isThemeDialogOpen}
+      onClose={() => setIsThemeDialogOpen(false)}
+      onSave={handleSaveCustomTheme}
+    />
+    </>
   );
 }

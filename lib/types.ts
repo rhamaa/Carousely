@@ -20,14 +20,29 @@ export type DesktopContext = {
 };
 
 export type AspectRatio = "4:5" | "1:1";
-export type FontPreset = "modern" | "technical" | "editorial";
+
+export type ThemeTokens = {
+  bgStart: string;
+  bgEnd: string;
+  text: string;
+  accent: string;
+  card: string;
+  shapeBorderWidth: number;
+  shapeBorderColor: string;
+  shapeShadowX: number;
+  shapeShadowY: number;
+  shapeShadowBlur: number;
+  shapeShadowColor: string;
+  shapeRadius: number;
+  fontHeading: string;
+  fontBody: string;
+};
 
 export type SavedProject = {
   version: number;
   markdown: string;
   aspectRatio: AspectRatio;
   theme: string;
-  fontPreset: FontPreset;
   slideOrder?: string[];
 };
 

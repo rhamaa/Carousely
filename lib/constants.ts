@@ -1,4 +1,4 @@
-import type { AspectRatio, FontPreset } from "./types";
+import type { AspectRatio } from "./types";
 
 export const starterMarkdown = `---
 title: "Konten Creator Sprint"
@@ -39,9 +39,11 @@ export interface ThemeTokens {
   shapeShadowBlur: number;
   shapeShadowColor: string;
   shapeRadius: number;
+  fontHeading?: string;
+  fontBody?: string;
 }
 
-export type ThemeKey = "aurora" | "ember" | "mono" | "soft-brutalism" | "neumorphism";
+export type ThemeKey = "aurora" | "ember" | "mono" | "soft-brutalism" | "neumorphism" | "midnight" | "sunset";
 
 export const themeStyles: Record<ThemeKey, ThemeTokens> = {
   aurora: {
@@ -113,39 +115,40 @@ export const themeStyles: Record<ThemeKey, ThemeTokens> = {
     shapeShadowBlur: 20,
     shapeShadowColor: "rgba(163, 177, 198, 0.7)",
     shapeRadius: 30,
+  },
+  midnight: {
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 1,
+    shapeBorderColor: "#334155",
+    shapeShadowX: 0,
+    shapeShadowY: 8,
+    shapeShadowBlur: 24,
+    shapeShadowColor: "rgba(0, 0, 0, 0.4)",
+    shapeRadius: 16,
+  },
+  sunset: {
+    bgStart: "var(--slide-bg-start)",
+    bgEnd: "var(--slide-bg-end)",
+    text: "var(--slide-text)",
+    accent: "var(--slide-accent)",
+    card: "var(--slide-card-bg)",
+    shapeBorderWidth: 0,
+    shapeBorderColor: "transparent",
+    shapeShadowX: 0,
+    shapeShadowY: 10,
+    shapeShadowBlur: 30,
+    shapeShadowColor: "rgba(0, 0, 0, 0.3)",
+    shapeRadius: 32,
   }
 };
 
 export const canvasSize: Record<AspectRatio, { width: number; height: number }> = {
   "4:5": { width: 1080, height: 1350 },
   "1:1": { width: 1080, height: 1080 },
-};
-
-export const fontPresets: Record<
-  FontPreset,
-  { label: string; headingVar: string; bodyVar: string; fallbackHeading: string; fallbackBody: string }
-> = {
-  modern: {
-    label: "Poppins & Inter",
-    headingVar: "--font-poppins",
-    bodyVar: "--font-inter",
-    fallbackHeading: "Poppins",
-    fallbackBody: "Inter",
-  },
-  technical: {
-    label: "Mono & Inter",
-    headingVar: "--font-jetbrains-mono",
-    bodyVar: "--font-inter",
-    fallbackHeading: "JetBrains Mono",
-    fallbackBody: "Inter",
-  },
-  editorial: {
-    label: "Poppins Bold",
-    headingVar: "--font-poppins",
-    bodyVar: "--font-poppins",
-    fallbackHeading: "Poppins",
-    fallbackBody: "Poppins",
-  },
 };
 
 export const markdownHint = `Tips format:

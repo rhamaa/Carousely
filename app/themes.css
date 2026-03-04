@@ -14,6 +14,9 @@
   --shape-shadow-blur: 12px;
   --shape-shadow-color: rgba(0, 0, 0, 0.1);
   --shape-radius: 24px;
+  
+  --slide-font-heading: "Poppins", sans-serif;
+  --slide-font-body: "Inter", sans-serif;
 }
 
 [data-theme="soft-brutalism"] {
@@ -30,6 +33,9 @@
   --shape-shadow-blur: 0px;
   --shape-shadow-color: #000000;
   --shape-radius: 0px;
+  
+  --slide-font-heading: "JetBrains Mono", monospace;
+  --slide-font-body: "Inter", sans-serif;
 }
 
 [data-theme="neumorphism"] {
@@ -46,6 +52,9 @@
   --shape-shadow-blur: 20px;
   --shape-shadow-color: rgba(163, 177, 198, 0.7);
   --shape-radius: 30px;
+  
+  --slide-font-heading: "Poppins", sans-serif;
+  --slide-font-body: "Inter", sans-serif;
 }
 
 [data-theme="ember"] {
@@ -62,6 +71,9 @@
   --shape-shadow-blur: 16px;
   --shape-shadow-color: rgba(180, 35, 24, 0.15);
   --shape-radius: 16px;
+  
+  --slide-font-heading: "Poppins", sans-serif;
+  --slide-font-body: "Inter", sans-serif;
 }
 
 [data-theme="mono"] {
@@ -78,4 +90,45 @@
   --shape-shadow-blur: 4px;
   --shape-shadow-color: rgba(0, 0, 0, 0.05);
   --shape-radius: 8px;
+  
+  --slide-font-heading: "Inter", sans-serif;
+  --slide-font-body: "Inter", sans-serif;
+}
+
+[data-theme="midnight"] {
+  --slide-bg-start: #0f172a;
+  --slide-bg-end: #1e293b;
+  --slide-text: #f8fafc;
+  --slide-accent: #38bdf8;
+  --slide-card-bg: #1e293b;
+  
+  --shape-border-width: 1px;
+  --shape-border-color: #334155;
+  --shape-shadow-x: 0px;
+  --shape-shadow-y: 8px;
+  --shape-shadow-blur: 24px;
+  --shape-shadow-color: rgba(0, 0, 0, 0.4);
+  --shape-radius: 16px;
+  
+  --slide-font-heading: "Poppins", sans-serif;
+  --slide-font-body: "Inter", sans-serif;
+}
+
+[data-theme="sunset"] {
+  --slide-bg-start: #2d1b2e;
+  --slide-bg-end: #4a2b38;
+  --slide-text: #fff0f5;
+  --slide-accent: #ff7b9c;
+  --slide-card-bg: #3a2230;
+
+  --shape-border-width: 0px;
+  --shape-border-color: transparent;
+  --shape-shadow-x: 0px;
+  --shape-shadow-y: 10px;
+  --shape-shadow-blur: 30px;
+  --shape-shadow-color: rgba(0, 0, 0, 0.3);
+  --shape-radius: 32px;
+  
+  --slide-font-heading: "Poppins", sans-serif;
+  --slide-font-body: "Poppins", sans-serif;
 }

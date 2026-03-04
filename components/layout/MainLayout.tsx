@@ -1,7 +1,7 @@
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import type { ReactNode } from "react";
 import Topbar from "./Topbar";
-import type { AspectRatio, FontPreset, DesktopContext } from "@/lib/types";
+import type { DesktopContext } from "@/lib/types";
 import { themeStyles } from "@/lib/constants";
 import type { ThemeKey } from "@/lib/constants";
 
@@ -11,18 +11,6 @@ type MainLayoutProps = {
   preview: ReactNode;
   logPanel: ReactNode;
   // Topbar props
-  activeAspectRatio: AspectRatio;
-  setAspectRatio: (value: AspectRatio) => void;
-  aspectRatioControlledByMarkdown: boolean;
-  activeThemeKey: ThemeKey;
-  setSelectedTheme: (value: ThemeKey) => void;
-  themeControlledByMarkdown: boolean;
-  fontPreset: FontPreset;
-  setFontPreset: (value: FontPreset) => void;
-  showGuides: boolean;
-  setShowGuides: (value: boolean) => void;
-  showSafeArea: boolean;
-  setShowSafeArea: (value: boolean) => void;
   isDesktopShell: boolean;
   onOpenProject: () => void;
   onSaveProject: () => void;
