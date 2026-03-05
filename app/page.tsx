@@ -60,6 +60,7 @@ export default function Home() {
   // Custom Themes State
   const [customThemes, setCustomThemes] = useState<Record<string, string>>({});
   const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false);
+  const [editingThemeName, setEditingThemeName] = useState<string | undefined>();
   
   const stageRefs = useRef<Map<string, StageHandle>>(new Map());
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -550,8 +551,17 @@ export default function Home() {
     pushLog("info", `Urutan slide diperbarui (${draggingSlideId} -> ${targetSlideId}).`);
   };
 
-  const handleSaveCustomTheme = (themeName: string, cssContent: string) => {
-    const updatedThemes = { ...customThemes, [themeName]: cssContent };
+  const handleSaveCustomTheme = (themeName: string, cssContent: string, originalName?: string) => {
+    const updatedThemes = { ...customThemes };
+    
+    // If we are renaming a theme, remove the old one first
+    if (originalName && originalName !== themeName) {
+      delete updatedThemes[originalName];
+      const oldStyleEl = document.getElementById(`custom-theme-${originalName}`);
+      if (oldStyleEl) oldStyleEl.remove();
+    }
+    
+    updatedThemes[themeName] = cssContent;
     setCustomThemes(updatedThemes);
     if (typeof window !== "undefined") {
       window.localStorage.setItem("carousely_custom_themes", JSON.stringify(updatedThemes));
@@ -568,7 +578,32 @@ export default function Home() {
     
     setSelectedTheme(themeName as keyof typeof themeStyles);
     setIsThemeDialogOpen(false);
-    pushLog("success", `Tema custom '${themeName}' berhasil ditambahkan.`);
+    setEditingThemeName(undefined);
+    pushLog("success", `Tema custom '${themeName}' berhasil disimpan.`);
+  };
+
+  const handleDeleteCustomTheme = (themeName: string) => {
+    const updatedThemes = { ...customThemes };
+    delete updatedThemes[themeName];
+    setCustomThemes(updatedThemes);
+    
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("carousely_custom_themes", JSON.stringify(updatedThemes));
+    }
+    
+    const styleEl = document.getElementById(`custom-theme-${themeName}`);
+    if (styleEl) styleEl.remove();
+    
+    if (selectedTheme === themeName) {
+      setSelectedTheme("aurora");
+    }
+    
+    pushLog("info", `Tema custom '${themeName}' dihapus.`);
+  };
+
+  const handleEditCustomTheme = (themeName: string) => {
+    setEditingThemeName(themeName);
+    setIsThemeDialogOpen(true);
   };
 
   // Setup injected styles on mount
@@ -616,7 +651,12 @@ export default function Home() {
           showSafeArea={showSafeArea}
           setShowSafeArea={setShowSafeArea}
           customThemes={customThemes}
-          onOpenCustomThemeDialog={() => setIsThemeDialogOpen(true)}
+          onOpenCustomThemeDialog={() => {
+            setEditingThemeName(undefined);
+            setIsThemeDialogOpen(true);
+          }}
+          onEditCustomTheme={handleEditCustomTheme}
+          onDeleteCustomTheme={handleDeleteCustomTheme}
         />
       }
       editor={
@@ -666,8 +706,12 @@ export default function Home() {
     />
     <CustomThemeDialog
       isOpen={isThemeDialogOpen}
-      onClose={() => setIsThemeDialogOpen(false)}
+      onClose={() => {
+        setIsThemeDialogOpen(false);
+        setEditingThemeName(undefined);
+      }}
       onSave={handleSaveCustomTheme}
+      editingTheme={editingThemeName ? { name: editingThemeName, css: customThemes[editingThemeName] } : undefined}
     />
     </>
   );

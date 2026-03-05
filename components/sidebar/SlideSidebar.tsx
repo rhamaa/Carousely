@@ -23,6 +23,8 @@ type SlideSidebarProps = {
   setShowSafeArea: (value: boolean) => void;
   customThemes: Record<string, string>;
   onOpenCustomThemeDialog: () => void;
+  onEditCustomTheme: (themeName: string) => void;
+  onDeleteCustomTheme: (themeName: string) => void;
 };
 
 export default function SlideSidebar({
@@ -45,6 +47,8 @@ export default function SlideSidebar({
   setShowSafeArea,
   customThemes,
   onOpenCustomThemeDialog,
+  onEditCustomTheme,
+  onDeleteCustomTheme,
 }: SlideSidebarProps) {
   return (
     <div className="h-full bg-black/20 backdrop-blur-md border-r border-white/5 flex flex-col w-64 shrink-0 overflow-hidden text-sm font-body">
@@ -101,6 +105,28 @@ export default function SlideSidebar({
                 </optgroup>
               )}
             </select>
+            
+            {/* Show edit/delete buttons if a custom theme is currently selected */}
+            {activeThemeKey in customThemes && (
+              <div className="flex gap-2 justify-end mt-1">
+                <button
+                  onClick={() => onEditCustomTheme(activeThemeKey)}
+                  className="text-[10px] text-indigo/80 hover:text-indigo transition-colors"
+                >
+                  Edit Theme
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to delete the theme '${activeThemeKey}'?`)) {
+                      onDeleteCustomTheme(activeThemeKey);
+                    }
+                  }}
+                  className="text-[10px] text-coral/80 hover:text-coral transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center gap-4 pt-2">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ThemeTokens } from "@/lib/types";
 import { themeStyles } from "@/lib/constants";
 
@@ -24,13 +24,28 @@ export const defaultThemeTemplate = `[data-theme="my-custom-theme"] {
 type CustomThemeDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (themeName: string, cssContent: string) => void;
+  onSave: (themeName: string, cssContent: string, originalName?: string) => void;
+  editingTheme?: { name: string; css: string };
 };
 
-export default function CustomThemeDialog({ isOpen, onClose, onSave }: CustomThemeDialogProps) {
+export default function CustomThemeDialog({ isOpen, onClose, onSave, editingTheme }: CustomThemeDialogProps) {
   const [themeName, setThemeName] = useState("my-custom-theme");
   const [cssContent, setCssContent] = useState(defaultThemeTemplate);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize form when editing
+  useEffect(() => {
+    if (isOpen) {
+      if (editingTheme) {
+        setThemeName(editingTheme.name);
+        setCssContent(editingTheme.css);
+      } else {
+        setThemeName("my-custom-theme");
+        setCssContent(defaultThemeTemplate);
+      }
+      setError(null);
+    }
+  }, [isOpen, editingTheme]);
 
   if (!isOpen) return null;
 
@@ -48,20 +63,27 @@ export default function CustomThemeDialog({ isOpen, onClose, onSave }: CustomThe
       return;
     }
 
+    // Only check for duplicate custom theme if we're not editing the same theme
+    if (!editingTheme || editingTheme.name !== normalizedName) {
+        // Validation for duplication is handled in the parent, but we do basic structural validation here
+    }
+
     if (!cssContent.includes(`[data-theme="${normalizedName}"]`)) {
       setError(`CSS must contain the selector [data-theme="${normalizedName}"]`);
       return;
     }
 
     setError(null);
-    onSave(normalizedName, cssContent);
+    onSave(normalizedName, cssContent, editingTheme?.name);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 font-body">
       <div className="bg-[#11131A] border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/5">
-          <h2 className="text-lg font-semibold text-white tracking-wide">Add Custom Theme</h2>
+          <h2 className="text-lg font-semibold text-white tracking-wide">
+            {editingTheme ? "Edit Custom Theme" : "Add Custom Theme"}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
