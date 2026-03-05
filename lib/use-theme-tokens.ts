@@ -66,6 +66,7 @@ function extractTokens(themeKey: string, element?: HTMLElement): ThemeTokens {
         shapeRadius: 0,
         fontHeading: "var(--slide-font-heading)",
         fontBody: "var(--slide-font-body)",
+        bgPattern: "var(--slide-bg-pattern)",
       }
     : themeStyles[themeKey as ThemeKey];
   
@@ -80,7 +81,17 @@ function extractTokens(themeKey: string, element?: HTMLElement): ThemeTokens {
     if (typeof val === "string" && val.startsWith("var(")) {
       const varName = val.slice(4, -1).trim();
       const extracted = computed.getPropertyValue(varName).trim();
-      return extracted || val;
+      // If variable is empty (e.g. from missing custom CSS injection timing),
+      // we don't want to return empty string because it will break canvas
+      if (extracted) return extracted;
+      
+      // Attempt to provide a fallback color based on the property name to avoid crashing
+      if (val.includes("bg-start")) return "#ffffff";
+      if (val.includes("bg-end")) return "#f3f4f6";
+      if (val.includes("text")) return "#000000";
+      if (val.includes("accent")) return "#3b82f6";
+      if (val.includes("card")) return "#ffffff";
+      return "transparent";
     }
     return val;
   };
@@ -100,6 +111,7 @@ function extractTokens(themeKey: string, element?: HTMLElement): ThemeTokens {
     shapeRadius: defaults.shapeRadius,
     fontHeading: (resolveVar(defaults.fontHeading || "Poppins, sans-serif") as string) || "Poppins, sans-serif",
     fontBody: (resolveVar(defaults.fontBody || "Inter, sans-serif") as string) || "Inter, sans-serif",
+    bgPattern: (resolveVar(defaults.bgPattern || "none") as string) || "none",
   };
 }
 

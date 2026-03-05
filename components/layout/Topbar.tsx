@@ -1,9 +1,7 @@
-import type { AspectRatio, DesktopContext } from "@/lib/types";
-import { themeStyles } from "@/lib/constants";
-import type { ThemeKey } from "@/lib/constants";
 
 type TopbarProps = {
   isDesktopShell: boolean;
+  lintIssueCount: number;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
@@ -15,6 +13,7 @@ type TopbarProps = {
 
 export default function Topbar({
   isDesktopShell,
+  lintIssueCount,
   onOpenProject,
   onSaveProject,
   onSaveProjectAs,
@@ -60,6 +59,11 @@ export default function Topbar({
           >
             Save As
           </button>
+
+          <span className="ml-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-mono bg-white/5 border border-white/10 text-white/80">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: lintIssueCount > 0 ? "#f97316" : "#22c55e" }} />
+            {lintIssueCount > 0 ? `${lintIssueCount} lint` : "Lint OK"}
+          </span>
         </div>
       </div>
 

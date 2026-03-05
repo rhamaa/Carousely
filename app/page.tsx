@@ -27,7 +27,11 @@ import { parseMarkdownToSlides } from "@/lib/parser";
 import MainLayout from "@/components/layout/MainLayout";
 import SlideSidebar from "@/components/sidebar/SlideSidebar";
 import MarkdownEditor from "@/components/editor/MarkdownEditor";
-import SlidePreview from "@/components/preview/SlidePreview";
+import dynamic from "next/dynamic";
+
+const SlidePreview = dynamic(() => import("@/components/preview/SlidePreview"), {
+  ssr: false,
+});
 import LogPanel from "@/components/layout/LogPanel";
 import CustomThemeDialog from "@/components/editor/CustomThemeDialog";
 
@@ -133,6 +137,7 @@ export default function Home() {
       import("konva/lib/shapes/Rect"),
       import("konva/lib/shapes/Line"),
       import("konva/lib/shapes/Text"),
+      import("konva/lib/shapes/Image"),
     ])
       .then(([module]) => {
         if (cancelled) return;
@@ -143,6 +148,7 @@ export default function Home() {
           Rect: module.Rect as KonvaRuntime["Rect"],
           Line: module.Line as KonvaRuntime["Line"],
           Text: module.Text as KonvaRuntime["Text"],
+          Image: module.Image as KonvaRuntime["Image"],
         });
       })
       .catch(() => {
@@ -248,18 +254,6 @@ export default function Home() {
     const title = `${isDirty ? "* " : ""}${filename} - Carousely`;
     getCurrentWindow().setTitle(title).catch(console.error);
   }, [projectPath, isDirty, isDesktopShell]);
-
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        handleSaveProject();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [projectPath, isDirty, markdown, aspectRatio, selectedTheme, slideOrder]);
 
   const collectExportSlides = useCallback((): ExportSlidePayload[] => {
     if (!konvaRuntime) throw new Error("Konva belum siap. Tunggu preview termuat.");
@@ -489,6 +483,47 @@ export default function Home() {
     }
   };
 
+  // Global Keyboard Shortcuts (after handlers are defined)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      const isShift = e.shiftKey;
+
+      if (key === "o") {
+        e.preventDefault();
+        void handleOpenProject();
+        return;
+      }
+
+      if (key === "s" && isShift) {
+        e.preventDefault();
+        void handleSaveProjectAs();
+        return;
+      }
+
+      if (key === "s") {
+        e.preventDefault();
+        void handleSaveProject();
+        return;
+      }
+
+      if (key === "e" && isShift) {
+        e.preventDefault();
+        void handleExportZip();
+        return;
+      }
+
+      if (key === "e") {
+        e.preventDefault();
+        void handleExportPng();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleOpenProject, handleSaveProjectAs, handleSaveProject, handleExportPng, handleExportZip]);
+
   const handleEditorDrop = async (event: React.DragEvent<HTMLTextAreaElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
@@ -696,6 +731,7 @@ export default function Home() {
         />
       }
       isDesktopShell={isDesktopShell}
+      lintIssueCount={lintIssueCount}
       onOpenProject={handleOpenProject}
       onSaveProject={handleSaveProject}
       onSaveProjectAs={handleSaveProjectAs}

@@ -1,9 +1,6 @@
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import type { ReactNode } from "react";
 import Topbar from "./Topbar";
-import type { DesktopContext } from "@/lib/types";
-import { themeStyles } from "@/lib/constants";
-import type { ThemeKey } from "@/lib/constants";
 
 type MainLayoutProps = {
   sidebar: ReactNode;
@@ -12,6 +9,7 @@ type MainLayoutProps = {
   logPanel: ReactNode;
   // Topbar props
   isDesktopShell: boolean;
+  lintIssueCount: number;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
@@ -26,6 +24,7 @@ export default function MainLayout({
   editor,
   preview,
   logPanel,
+  lintIssueCount,
   ...topbarProps
 }: MainLayoutProps) {
   return (
@@ -37,7 +36,7 @@ export default function MainLayout({
       </div>
 
       <div className="relative z-10 flex flex-col h-full w-full">
-        <Topbar {...topbarProps} />
+        <Topbar lintIssueCount={lintIssueCount} {...topbarProps} />
         
         <div className="flex-1 flex overflow-hidden">
           {sidebar}

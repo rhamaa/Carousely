@@ -5,12 +5,13 @@ export type StageHandle = {
 };
 
 export type KonvaRuntime = {
-  Stage: ComponentType<Record<string, unknown>>;
-  Layer: ComponentType<Record<string, unknown>>;
-  Group: ComponentType<Record<string, unknown>>;
-  Rect: ComponentType<Record<string, unknown>>;
-  Line: ComponentType<Record<string, unknown>>;
-  Text: ComponentType<Record<string, unknown>>;
+  Stage: ComponentType<any>;
+  Layer: ComponentType<any>;
+  Group: ComponentType<any>;
+  Rect: ComponentType<any>;
+  Line: ComponentType<any>;
+  Text: ComponentType<any>;
+  Image: ComponentType<any>;
 };
 
 export type DesktopContext = {
@@ -36,6 +37,7 @@ export type ThemeTokens = {
   shapeRadius: number;
   fontHeading: string;
   fontBody: string;
+  bgPattern?: string;
 };
 
 export type SavedProject = {

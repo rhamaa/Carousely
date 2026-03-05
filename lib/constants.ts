@@ -41,6 +41,7 @@ export interface ThemeTokens {
   shapeRadius: number;
   fontHeading?: string;
   fontBody?: string;
+  bgPattern?: string;
 }
 
 export type ThemeKey = "aurora" | "ember" | "mono" | "soft-brutalism" | "neumorphism" | "midnight" | "sunset";
